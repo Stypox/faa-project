@@ -317,6 +317,7 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
           intros i h_i_lb h_i0 h_i_ub
           simp [Vector.cast, Vector.get, Array.getElem_push]
           split_ifs with h1 h2 h3 _ h4 h5 <;> try omega
+          -- all of the previus cases -> just use `proof`
           specialize proof i (by omega) (by omega) h_i_ub
           simp [Vector.get] at proof
           assumption
@@ -365,6 +366,7 @@ def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n 
     h_n,
     h_n_pow2,
     by {
+      -- we have the proof in b.proof already, so it's "true by construction"
       intro j h0j hjm
       simp [Vector.get]
       have proof := b.proof j (by omega) h0j hjm
