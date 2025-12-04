@@ -295,11 +295,42 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
-def build_helper (α : Type*) [Monoid α] (m l : ℕ) (h_n_pow2 : ∃ k, m = 2^k) (xs : Vector α m)
-    : Vector α (2*m - 2^(H-l) + 1) :=
-  if h_LR1 : L+1 = R {
+def build_helper {α : Type*} (inst: Monoid α) (m j j_rev : ℕ) (h_pos : 0 < m) (h_bounds: 0 ≤ j ∧ j ≤ 2*m) (h_rev : j_rev = 2*m - j) (xs : Vector α m) -- (h_n_pow2 : ∃ k, m = 2^k) (a : Vector α (2*m -j -1))
+    : Vector α j_rev :=
+  if h2m : j = 2*m then
+    ⟨#[], (by simp_all)⟩
 
-  }
+  else
+    have h_rev' : (j_rev - 1) = 2*m - (j+1) := by
+      rw[h_rev]
+      omega
+    have h_bounds': 0 ≤ (j+1) ∧ (j+1) ≤ 2*m := by
+      constructor
+      · omega
+      · grind
+
+    let b := build_helper inst m (j+1) (j_rev-1) h_pos h_bounds' h_rev' xs
+
+    if h0: j = 0 then
+      let b := build_helper inst m (j+1) (j_rev - 1) h_pos h_bounds' h_rev' xs
+
+      have h_j_rev_1_1 : j_rev - 1 + 1 = j_rev := by
+        rw [Nat.sub_one_add_one ?_]
+        rw[h0] at h_rev
+        simp at h_rev
+        rw[h_rev]
+        omega
+
+      b.push inst.one
+    else if j ≥ m then
+      --
+      b.push xs[j-m]
+    else
+      --
+      b.push (b[2*m-1 - 2*j] * b[2*m-1 - (2*j+1)])
+
+
+
 
 
 def build (α : Type*) [Monoid α] (n : ℕ) (h_n_pow2 : ∃ k, n = 2^k)
