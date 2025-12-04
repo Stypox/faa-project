@@ -32,6 +32,39 @@ lemma foldl_single2 {α : Type*} (a : Array α) (op : α → α → α) (init : 
   rw [Array.foldl_toList op] at h_list
   assumption
 
+
+-- helper lemma
+lemma foldl_combine {α : Type*} [Monoid α] (n l mid r : ℕ) (a : Vector α n) (h_bounds: 0 ≤ l ∧ l ≤ mid ∧ mid ≤ r ∧ r < n):
+    ((a.toArray.extract l mid).foldl (fun a b => a * b) 1)
+    * ((a.toArray.extract mid r).foldl (fun a b => a * b) 1)
+    = (a.toArray.extract l r).foldl (fun a b => a * b) 1
+    := by
+  expose_names
+  set fold1 := Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract l mid) with h_f1
+  --set fold2 := Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r) with h_f2
+  rw [show
+      fold1 * Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r) =
+        inst.toMulOneClass.toMul.1 fold1 (Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r))
+      from rfl]
+  nth_rw 1 [show (fun a b ↦ a * b) = Mul.mul from rfl]
+  rw [← Array.foldl_assoc (op := Mul.mul) (ha:= ?_)]
+  · rw [show Mul.mul fold1 1 = fold1 * 1 from rfl]
+    rw [mul_one fold1]
+    rw [show (fun a b ↦ a * b) = Mul.mul from rfl]
+    rw [h_f1]
+    rw [show (fun a b ↦ a * b) = Mul.mul from rfl]
+    rw [← Array.foldl_append]
+    suffices (a.toArray.extract l mid ++ a.toArray.extract mid r) = (a.toArray.extract l r) by
+      rw[this]
+    simp
+    rw [Nat.min_eq_left h_bounds.right.left]
+    rw [Nat.max_eq_right h_bounds.right.right.left]
+  · --rw [show Mul.mul = inst.toMulOneClass.toMul.1 from rfl]
+    refine { assoc := ?_ }
+    exact inst.mul_assoc
+
+
+
 -- fundamental property of segment tree
 lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
@@ -60,10 +93,13 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.le_log2 ?_]
       · assumption
       · omega
-    have h_LeqR : L = R := by
-      subst R
+    have pow2_0 : 2^ h = 1 := by
       subst h
       rw [Nat.sub_eq_zero_of_le exp0]
+      omega
+    have h_LeqR : L = R := by
+      subst R
+      rw [pow2_0]
       simp
     have h_leqm : st.m = 2^l := by
       subst l
@@ -84,15 +120,16 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
         assumption
         omega
 
-    rw [← h_h, ← h_k, ← h_L, ← h_R, h_LeqR]
+    rw [← h_h, ← h_k, ← h_L, ← h_R, ← h_LeqR]
     rw [foldl_single2 (h:=?_)] -- without (h:=?_) it says "don't know how to synthesize placeholder"
     · rw [Array.getElem_extract]
       simp [Vector.get]
-      subst R
-      subst L
-      subst h
       apply getElem_congr_idx
-      rw [Nat.sub_eq_zero_of_le exp0]
+      --subst R
+      subst L
+      rw [pow2_0]
+      --subst h
+      --rw [Nat.sub_eq_zero_of_le exp0]
       simp
       subst k
       rw [h_leqm]
@@ -100,15 +137,17 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
     · simp
       rw [Nat.min_eq_left ?_]
       · omega
-      · subst R
+      ·-- subst R
         subst L
-        subst h
-        rw [Nat.sub_eq_zero_of_le exp0]
+        rw [pow2_0]
+        --subst h
+        --rw [Nat.sub_eq_zero_of_le exp0]
         omega
 
   · rw [st.h_children j h0j (by omega)]   -- in this case a[j] is an internal node of the tree
     rw [st.h_coverage_interval]
     rw [st.h_coverage_interval]
+
     rw [Array.foldl]
     sorry
     omega
