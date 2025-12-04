@@ -11,7 +11,7 @@ def V : Array ℕ := [1, 2, 3].toArray
 
 structure SegmentTree (α : Type u) [Monoid α] (n : ℕ) where
   n := n
-  m := n
+  m := n -- temporary
   -- TODO maybe store original vector
   a : Vector α (2*m)
 
@@ -20,7 +20,8 @@ structure SegmentTree (α : Type u) [Monoid α] (n : ℕ) where
   h_children (j : ℕ) (h0j : 0 < j) (hjm: j < m) :
     (a.get ⟨j, by omega⟩) = (a.get ⟨2*j, by omega⟩) * (a.get ⟨2*j+1, by omega⟩)
 
-theorem foldl_single (a : List α) (op : α → α → α) (init : α) (h : a.length = 1) :
+-- helper lemma
+lemma foldl_single (a : List α) (op : α → α → α) (init : α) (h : a.length = 1) :
     a.foldl op init = op init (a[0]) := by
   cases a with
   | nil => trivial
@@ -30,12 +31,14 @@ theorem foldl_single (a : List α) (op : α → α → α) (init : α) (h : a.le
     | nil => simp
     | cons y ts => simp_all
 
-theorem foldl_single2 (a : Array α) (op : α → α → α) (init : α) (h : a.size = 1) :
+-- helper lemma
+lemma foldl_single2 (a : Array α) (op : α → α → α) (init : α) (h : a.size = 1) :
     a.foldl op init = op init (a[0]) := by
   have h_list := foldl_single a.toList op init (by simp_all)
   rw [Array.foldl_toList op] at h_list
   assumption
 
+-- fundamental property of segment tree
 lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
       let l := Nat.log2 j
@@ -56,7 +59,7 @@ lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : 
   simp only []
 
   by_cases hjm : st.m ≤ j
-  · have exp0 : H ≤ l := by
+  · have exp0 : H ≤ l := by -- in this case a[j] is a leaf of the tree
       subst l
       rw [H_spec] at hjm
       subst H
@@ -109,7 +112,7 @@ lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : 
         rw [Nat.sub_eq_zero_of_le exp0]
         omega
 
-  · rw [st.h_children j h0j (by omega)]
+  · rw [st.h_children j h0j (by omega)]   -- in this case a[j] is an internal node of the tree
     rw [st.h_coverage_interval]
     rw [st.h_coverage_interval]
     rw [Array.foldl]
