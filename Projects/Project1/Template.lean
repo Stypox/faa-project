@@ -295,7 +295,20 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
+def build_helper (α : Type*) [Monoid α] (m l : ℕ) (h_n_pow2 : ∃ k, m = 2^k) (xs : Vector α m)
+    : Vector α (2*m - 2^(H-l) + 1) :=
+  if h_LR1 : L+1 = R {
+
+  }
+
 
 def build (α : Type*) [Monoid α] (n : ℕ) (h_n_pow2 : ∃ k, n = 2^k)
-    (xs : Vector α n) : SegmentTree α n := by
-  sorry
+    (xs : Vector α n) : SegmentTree α n := ⟨
+  n,
+  n,
+  sorry,
+  h_n_pow2,
+  by {
+
+  }
+⟩
