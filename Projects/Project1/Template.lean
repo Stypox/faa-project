@@ -158,11 +158,8 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
     · rw [Array.getElem_extract]
       simp [Vector.get]
       apply getElem_congr_idx
-      --subst R
       subst L
       rw [pow2_0]
-      --subst h
-      --rw [Nat.sub_eq_zero_of_le exp0]
       simp
       subst k
       rw [h_leqm]
@@ -170,11 +167,8 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
     · simp
       rw [Nat.min_eq_left ?_]
       · omega
-      ·-- subst R
-        subst L
+      · subst L
         rw [pow2_0]
-        --subst h
-        --rw [Nat.sub_eq_zero_of_le exp0]
         omega
 
   · rw [st.h_children j h0j (by omega)]   -- in this case a[j] is an internal node of the tree
@@ -190,7 +184,6 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       omega
 
     set aL := st.m + L with h_aL
-    -- (L+R)/2 = (2^h * k + 2^h * k + 2^h)/2 = 2^(h-1) * (2k+1)
     set aC := st.m + 2^(h-1)*(2*k+1) with h_aC
     set aR := st.m + R with h_aR
 
