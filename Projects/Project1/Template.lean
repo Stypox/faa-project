@@ -55,8 +55,8 @@ theorem foldl_single3 (α : Type u) [Monoid α] (n : ℕ) (as : Vector α n) (l 
   · rfl
 
 theorem foldl_combine (α : Type u) [Monoid α] (n : ℕ) (as : Vector α n)
-    (l1 r1 l2 r2 : ℕ) :-- (h_next : r1 + 1 = l2) :
-    (my_foldl α n as l1 r1) * (my_foldl α n as l2 r2) = my_foldl α n as l1 r2 := by
+    (l1 r1 l2 r2 l3 r3 : ℕ) :-- (h_next : r1 + 1 = l2) :
+    (my_foldl α n as l1 r1) * (my_foldl α n as l2 r2) = my_foldl α n as l3 r3 := by
   sorry
 
 lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : SegmentTree α n)
@@ -107,7 +107,6 @@ lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : 
         omega
 
     rw [← h_h, ← h_k, ← h_L, ← h_R, h_LeqR]
-    set slice := (st.a.toArray.extract (st.m + R) (st.m + R + 1)) with h_slice
     rw [foldl_single3]
     · simp [Vector.get]
       subst R
@@ -130,6 +129,10 @@ lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : 
       (st.m + 2 ^ (st.H - (2 * j + 1).log2) * (2 * j + 1 - 2 ^ (2 * j + 1).log2))
       (st.m + (2 ^ (st.H - (2 * j + 1).log2) * (2 * j + 1 - 2 ^ (2 * j + 1).log2) + 2 ^ (st.H - (2 * j + 1).log2) - 1))
       --(by sorry)
+    subst l
+    rw [a]
+    omega
+    omega
 
 
 
