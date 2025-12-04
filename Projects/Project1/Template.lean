@@ -73,6 +73,36 @@ theorem monoid_foldl_combine (α : Type*) [Monoid α] (n : ℕ) (as : Vector α 
     rfl
   }
 
+-- helper lemma
+lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n) (h_bounds: 0 ≤ l ∧ l ≤ mid ∧ mid ≤ r ∧ r < n):
+    ((a.toArray.extract l mid).foldl (fun a b => a * b) 1)
+    * ((a.toArray.extract mid r).foldl (fun a b => a * b) 1)
+    = (a.toArray.extract l r).foldl (fun a b => a * b) 1
+    := by
+  expose_names
+  set fold1 := Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract l mid) with h_f1
+  --set fold2 := Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r) with h_f2
+  rw [show
+      fold1 * Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r) =
+        inst.toMulOneClass.toMul.1 fold1 (Array.foldl (fun a b ↦ a * b) 1 (a.toArray.extract mid r))
+      from rfl]
+  nth_rw 1 [show (fun a b ↦ a * b) = Mul.mul from rfl]
+  rw [← Array.foldl_assoc (op := Mul.mul) (ha:= ?_)]
+  · rw [show Mul.mul fold1 1 = fold1 * 1 from rfl]
+    rw [mul_one fold1]
+    rw [show (fun a b ↦ a * b) = Mul.mul from rfl]
+    rw [h_f1]
+    rw [show (fun a b ↦ a * b) = Mul.mul from rfl]
+    rw [← Array.foldl_append]
+    suffices (a.toArray.extract l mid ++ a.toArray.extract mid r) = (a.toArray.extract l r) by
+      rw[this]
+    simp
+    rw [Nat.min_eq_left h_bounds.right.left]
+    rw [Nat.max_eq_right h_bounds.right.right.left]
+  · --rw [show Mul.mul = inst.toMulOneClass.toMul.1 from rfl]
+    refine { assoc := ?_ }
+    exact inst.mul_assoc
+
 lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
       let l := Nat.log2 j
@@ -81,7 +111,7 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       let h := H - l
       let L := 2^h * k
       let R := L + 2^h
-      st.a.get ⟨j, hj2m⟩ = monoid_foldl α (2*st.m) st.a (st.m+L) (st.m+R)
+      st.a.get ⟨j, hj2m⟩ = (st.a.toArray.extract (st.m+L) (st.m+R)).foldl (fun a b => a * b) 1
     := by
   set l := Nat.log2 j with h_l
   set k := j - 2^l with h_k
@@ -100,11 +130,13 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.le_log2 ?_]
       · assumption
       · omega
-    have h_LeqR : L = R-1 := by
-      subst R
+    have pow2_0 : 2^h = 1 := by
       subst h
       rw [Nat.sub_eq_zero_of_le exp0]
-      simp
+      omega
+    have h_LeqR : R = L+1 := by
+      subst R
+      rw [pow2_0]
     have h_leqm : st.m = 2^l := by
       subst l
       rw [Nat.le_antisymm_iff]
@@ -121,28 +153,29 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
         assumption
         omega
 
-    rw [← h_h, ← h_k, ← h_L, h_LeqR]
-    -- https://leanprover-community.github.io/archive/stream/270676-lean4/topic/(kernel).20declaration.20has.20metavariables.html
-    rw [monoid_foldl_single (h_l:=?_)] -- without (h:=?_) it says "don't know how to synthesize placeholder"
-    · simp [Vector.get]
-      subst R
-      subst L
-      subst h
+    rw [← h_h, ← h_k, ← h_L, ← h_R, h_LeqR]
+    rw [foldl_single2 (h:=?_)] -- without (h:=?_) it says "don't know how to synthesize placeholder"
+    · rw [Array.getElem_extract]
+      simp [Vector.get]
       apply getElem_congr_idx
-      rw [Nat.sub_eq_zero_of_le exp0]
+      --subst R
+      subst L
+      rw [pow2_0]
+      --subst h
+      --rw [Nat.sub_eq_zero_of_le exp0]
       simp
       subst k
       rw [h_leqm]
       omega
-    · subst h
-      rw [Nat.sub_eq_zero_of_le exp0]
-      omega
-    · rw [show st.a.size = 2 * st.m from rfl]
-      subst R
-      subst L
-      subst h
-      rw [Nat.sub_eq_zero_of_le exp0]
-      omega
+    · simp
+      rw [Nat.min_eq_left ?_]
+      · omega
+      ·-- subst R
+        subst L
+        rw [pow2_0]
+        --subst h
+        --rw [Nat.sub_eq_zero_of_le exp0]
+        omega
 
   · rw [st.h_children j h0j (by omega)]   -- in this case a[j] is an internal node of the tree
     rw [st.h_coverage_interval (h0j:=by omega)]
@@ -241,8 +274,9 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       omega
     }]
 
-    have a := monoid_foldl_combine α (2*st.m) st.a aL aC aR ?_ ?_ ?_
+    have a := foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_, ?_, ?_⟩
     · exact a
+    · omega
     · sorry
     · sorry
     · sorry
