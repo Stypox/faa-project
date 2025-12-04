@@ -74,7 +74,7 @@ theorem monoid_foldl_combine (α : Type*) [Monoid α] (n : ℕ) (as : Vector α 
   }
 
 -- helper lemma
-lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n) (h_bounds: 0 ≤ l ∧ l ≤ mid ∧ mid ≤ r ∧ r < n):
+lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n) (h_bounds: l ≤ mid ∧ mid ≤ r):
     ((a.toArray.extract l mid).foldl (fun a b => a * b) 1)
     * ((a.toArray.extract mid r).foldl (fun a b => a * b) 1)
     = (a.toArray.extract l r).foldl (fun a b => a * b) 1
@@ -97,8 +97,8 @@ lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n)
     suffices (a.toArray.extract l mid ++ a.toArray.extract mid r) = (a.toArray.extract l r) by
       rw[this]
     simp
-    rw [Nat.min_eq_left h_bounds.right.left]
-    rw [Nat.max_eq_right h_bounds.right.right.left]
+    rw [Nat.min_eq_left h_bounds.left]
+    rw [Nat.max_eq_right h_bounds.right]
   · --rw [show Mul.mul = inst.toMulOneClass.toMul.1 from rfl]
     refine { assoc := ?_ }
     exact inst.mul_assoc
@@ -274,9 +274,8 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       omega
     }]
 
-    have a := foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_, ?_, ?_⟩
+    have a := foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_⟩
     · exact a
-    · omega
     · rw [h_aL, h_aC]
       subst L
       subst k
@@ -301,7 +300,6 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - j.log2 - 1)) 2 (j - 2 ^ j.log2 + 1)]
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
-    · sorry
 
 
 def build (α : Type*) [Monoid α] (n : ℕ) (h_n_pow2 : ∃ k, n = 2^k)
