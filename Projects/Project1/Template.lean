@@ -12,6 +12,7 @@ structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   a : Vector α (2*m)
 
   -- assumptions
+  h_m : m > 0
   h_n_pow2 : ∃ k, m = 2^k -- temporary
   h_children (j : ℕ) (h0j : 0 < j) (hjm: j < m) :
     (a.get ⟨j, by omega⟩) = (a.get ⟨2*j, by omega⟩) * (a.get ⟨2*j+1, by omega⟩)
@@ -295,20 +296,40 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
-def build_helper (α : Type*) [Monoid α] (m l : ℕ) (h_n_pow2 : ∃ k, m = 2^k) (xs : Vector α m)
-    : Vector α (2*m - 2^(H-l) + 1) :=
-  if h_LR1 : L+1 = R {
+-- def build_helper (α : Type*) [Monoid α] (m l : ℕ) (h_n_pow2 : ∃ k, m = 2^k) (xs : Vector α m)
+--     : Vector α (2*m - 2^(H-l) + 1) :=
+--   if h_LR1 : L+1 = R {
 
-  }
+--   }
 
 
-def build (α : Type*) [Monoid α] (n : ℕ) (h_n_pow2 : ∃ k, n = 2^k)
+def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
     (xs : Vector α n) : SegmentTree α n := ⟨
   n,
   n,
   sorry,
+  h_n,
   h_n_pow2,
   by {
-
+    sorry
   }
 ⟩
+
+noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
+  query_aux 1 (by omega) (by have := st.h_m; omega)
+  where query_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
+    if h_jm : j ≥ st.m then
+      st.a.get ⟨j, h_j⟩
+    else
+      let l := Nat.log2 j
+      let k := j - 2^l
+      let H := st.h_n_pow2.choose
+      let h := H - l
+      let L := 2^h * k
+      let R := L + 2^h
+      if L ≥ p ∧ R ≤ q then
+        st.a.get ⟨j, h_j⟩
+      else if q ≤ L ∨ p ≥ R then
+        inst.one
+      else
+        (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
