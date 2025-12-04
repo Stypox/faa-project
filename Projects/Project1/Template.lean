@@ -1,15 +1,9 @@
-/-
-  Project 1 Template
-
-  Complete the proofs below.
--/
-
 import Mathlib.Tactic
 
 def V : Array ℕ := [1, 2, 3].toArray
 #eval Array.foldl (fun a b => (a + b)) 0 V 1 2
 
-structure SegmentTree (α : Type u) [Monoid α] (n : ℕ) where
+structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   n := n
   m := n -- temporary
   -- TODO maybe store original vector
@@ -21,7 +15,7 @@ structure SegmentTree (α : Type u) [Monoid α] (n : ℕ) where
     (a.get ⟨j, by omega⟩) = (a.get ⟨2*j, by omega⟩) * (a.get ⟨2*j+1, by omega⟩)
 
 -- helper lemma
-lemma foldl_single (a : List α) (op : α → α → α) (init : α) (h : a.length = 1) :
+lemma foldl_single {α : Type*} (a : List α) (op : α → α → α) (init : α) (h : a.length = 1) :
     a.foldl op init = op init (a[0]) := by
   cases a with
   | nil => trivial
@@ -32,14 +26,14 @@ lemma foldl_single (a : List α) (op : α → α → α) (init : α) (h : a.leng
     | cons y ts => simp_all
 
 -- helper lemma
-lemma foldl_single2 (a : Array α) (op : α → α → α) (init : α) (h : a.size = 1) :
+lemma foldl_single2 {α : Type*} (a : Array α) (op : α → α → α) (init : α) (h : a.size = 1) :
     a.foldl op init = op init (a[0]) := by
   have h_list := foldl_single a.toList op init (by simp_all)
   rw [Array.foldl_toList op] at h_list
   assumption
 
 -- fundamental property of segment tree
-lemma SegmentTree.h_coverage_interval (α : Type u) [Monoid α] (n : ℕ) (st : SegmentTree α n)
+lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
       let l := Nat.log2 j
       let k := j - 2^l
