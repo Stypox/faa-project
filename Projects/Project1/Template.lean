@@ -296,7 +296,7 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
-def build_helper {α : Type*} (inst: Monoid α) (m j j_rev : ℕ) (h_pos : 0 < m) (h_bounds: 0 ≤ j ∧ j ≤ 2*m) (h_rev : j_rev = 2*m - j) (xs : Vector α m) -- (h_n_pow2 : ∃ k, m = 2^k) (a : Vector α (2*m -j -1))
+def build_helper {α : Type*} [inst: Monoid α] (m j j_rev : ℕ) (h_pos : 0 < m) (h_bounds: 0 ≤ j ∧ j ≤ 2*m) (h_rev : j_rev = 2*m - j) (xs : Vector α m) -- (h_n_pow2 : ∃ k, m = 2^k) (a : Vector α (2*m -j -1))
     : Vector α j_rev :=
   if h2m : j = 2*m then
     ⟨#[], (by simp_all)⟩
@@ -310,32 +310,32 @@ def build_helper {α : Type*} (inst: Monoid α) (m j j_rev : ℕ) (h_pos : 0 < m
       · omega
       · grind
 
-    let b := build_helper inst m (j+1) (j_rev-1) h_pos h_bounds' h_rev' xs
+    let b := build_helper m (j+1) (j_rev-1) h_pos h_bounds' h_rev' xs
 
     if h0: j = 0 then
-      let b := build_helper inst m (j+1) (j_rev - 1) h_pos h_bounds' h_rev' xs
-
-      have h_j_rev_1_1 : j_rev - 1 + 1 = j_rev := by
-        rw [Nat.sub_one_add_one ?_]
-        rw[h0] at h_rev
-        simp at h_rev
-        rw[h_rev]
-        omega
-
-      b.push inst.one
-    else if j ≥ m then
-      --
-      b.push xs[j-m]
+      let b := build_helper m (j+1) (j_rev - 1) h_pos h_bounds' h_rev' xs
+      (b.push inst.one).cast (by rw [Nat.sub_one_add_one (by omega)])
+    else if h_jm : j ≥ m then
+      (b.push xs[j-m]).cast (by omega)
     else
-      --
-      b.push (b[2*m-1 - 2*j] * b[2*m-1 - (2*j+1)])
+      have h_2j2_le_2m : 2*j + 2 ≤ 2*m := by
+        simp_all
+        rw [Nat.lt_iff_add_one_le] at h_jm
+        rw [Nat.Simproc.add_le_le j (by omega)] at h_jm
+        grw [h_jm]
+        omega
+      (b.push (b[2*m-1 - 2*j]'(by {
+        rw [h_rev, Nat.sub_sub, Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
+      }) * b[2*m-1 - (2*j+1)]'(by {
+        rw [h_rev, Nat.sub_sub, Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
+      }))).cast (by omega)
 
 
 def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
     (xs : Vector α n) : SegmentTree α n := ⟨
   n,
   n,
-  sorry,
+  build_helper ,
   h_n,
   h_n_pow2,
   by {
