@@ -296,16 +296,34 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
+
+structure BuildHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
+  a : Vector α (2*m - j)
+  proof (i : ℕ) (h_i_lb : i > m) (h_i_ub : i < 2*m - j) :
+    a.get ⟨i, h_i_ub⟩ = a.get ⟨2*m-1 - 2*i, by omega⟩ * a.get ⟨2*m-1 - (2*i+1), by omega⟩
+
 def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -- (h_n_pow2 : ∃ k, m = 2^k) (a : Vector α (2*m -j -1))
-    : Vector α (2*m - j) :=
+    : BuildHelperStruct α m j :=
   if h2m : j ≥ 2*m then
-    ⟨#[], (by simp_all)⟩
+    ⟨⟨#[], (by simp_all)⟩, by grind⟩
 
   else
-    let b := build_helper m (j+1) xs
+    let ⟨a, proof⟩ := build_helper m (j+1) xs
 
     if h0: j = 0 then
-      (b.push inst.one).cast (by rw [Nat.sub_add_eq (2 * m) j 1, Nat.sub_one_add_one (by omega)])
+      ⟨
+        (a.push inst.one).cast (by rw [Nat.sub_add_eq (2 * m) j 1, Nat.sub_one_add_one (by omega)]),
+        by {
+          intros i h_i_lb h_i_ub
+          simp [Vector.cast, Vector.get, Array.getElem_push]
+          split_ifs with h1 h2 h3 _ h4 h5 <;> try omega
+          · specialize proof i h_i_lb (by omega)
+            simp [Vector.get] at proof
+            assumption
+          · simp_all
+            -- TODO
+        }
+      ⟩
     else if h_jm : j ≥ m then
       (b.push xs[j-m]).cast (by omega)
     else
@@ -315,6 +333,7 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
         rw [Nat.Simproc.add_le_le j (by omega)] at h_jm
         grw [h_jm]
         omega
+      -- TODO probabilmente i calcoli degli indici sono sbagliati qua
       (b.push (b[2*m-1 - 2*j]'(by {
         rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
       }) * b[2*m-1 - (2*j+1)]'(by {
@@ -326,11 +345,19 @@ def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n 
     (xs : Vector α n) : SegmentTree α n := ⟨
   n,
   n,
-  build_helper ,
+  (build_helper n 0 xs).reverse,
   h_n,
   h_n_pow2,
   by {
-    sorry
+    intro j h0j hjm
+    simp [Vector.get]
+    unfold build_helper
+    split_ifs <;> try omega
+    simp [Vector.getElem_push]
+    split_ifs <;> try omega
+    unfold build_helper
+    split_ifs <;> try grind
+    simp
   }
 ⟩
 
