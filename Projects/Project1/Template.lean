@@ -267,9 +267,9 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       omega
     }]
 
-    have a := foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_⟩
-    · exact a
-    · rw [h_aL, h_aC]
+    apply foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_⟩
+    · -- aL <= aC
+      rw [h_aL, h_aC]
       subst L
       subst k
       subst l
@@ -280,7 +280,8 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - j.log2 - 1)) 2 (j - 2 ^ j.log2)]
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
-    · rw [h_aC, h_aR]
+    · -- aC <= aR
+      rw [h_aC, h_aR]
       subst R
       subst L
       subst k
