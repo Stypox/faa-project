@@ -299,8 +299,8 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
 
 structure BuildHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m - j)
-  proof (i : ℕ) (h_i_lb : i > m) (h_i_ub : i < 2*m - j) :
-    a.get ⟨i, h_i_ub⟩ = a.get ⟨2*m-1 - 2*i, by omega⟩ * a.get ⟨2*m-1 - (2*i+1), by omega⟩
+  proof (i : ℕ) (h_i_lb : i ≥ j) (h_i0 : i > 0) (h_i_ub : i < m) :
+    a.get ⟨2*m-1 - i, by omega⟩ = a.get ⟨2*m-1 - 2*i, by omega⟩ * a.get ⟨2*m-1 - (2*i+1), by omega⟩
 
 def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -- (h_n_pow2 : ∃ k, m = 2^k) (a : Vector α (2*m -j -1))
     : BuildHelperStruct α m j :=
@@ -314,18 +314,19 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
       ⟨
         (a.push inst.one).cast (by rw [Nat.sub_add_eq (2 * m) j 1, Nat.sub_one_add_one (by omega)]),
         by {
-          intros i h_i_lb h_i_ub
+          intros i h_i_lb h_i0 h_i_ub
           simp [Vector.cast, Vector.get, Array.getElem_push]
           split_ifs with h1 h2 h3 _ h4 h5 <;> try omega
-          · specialize proof i h_i_lb (by omega)
-            simp [Vector.get] at proof
-            assumption
-          · simp_all
-            -- TODO
+          specialize proof i (by omega) (by omega) h_i_ub
+          simp [Vector.get] at proof
+          assumption
         }
       ⟩
     else if h_jm : j ≥ m then
-      (b.push xs[j-m]).cast (by omega)
+      ⟨
+        (a.push xs[j-m]).cast (by omega),
+        by omega -- trivial by default, the quantifiers are all empty
+      ⟩
     else
       have h_2j2_le_2m : 2*j + 2 ≤ 2*m := by
         simp_all
@@ -333,33 +334,44 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
         rw [Nat.Simproc.add_le_le j (by omega)] at h_jm
         grw [h_jm]
         omega
-      -- TODO probabilmente i calcoli degli indici sono sbagliati qua
-      (b.push (b[2*m-1 - 2*j]'(by {
-        rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
-      }) * b[2*m-1 - (2*j+1)]'(by {
-        rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
-      }))).cast (by omega)
+      ⟨
+        (a.push (a[2*m-1 - 2*j]'(by {
+          rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
+        }) * a[2*m-1 - (2*j+1)]'(by {
+          rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
+        }))).cast (by omega),
+        by {
+          intros i h_i_lb h_i0 h_i_ub
+          simp [Vector.cast, Vector.get, Array.getElem_push]
+          split_ifs with h1 h2 h3 _ h4 h5 <;> try omega
+          · -- all of the previus cases -> just use `proof`
+            specialize proof i (by omega) (by omega) h_i_ub
+            simp [Vector.get] at proof
+            assumption
+          · -- the newly added element
+            suffices i = j by simp [this]
+            omega
+        }
+      ⟩
 
 
 def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
-    (xs : Vector α n) : SegmentTree α n := ⟨
-  n,
-  n,
-  (build_helper n 0 xs).reverse,
-  h_n,
-  h_n_pow2,
-  by {
-    intro j h0j hjm
-    simp [Vector.get]
-    unfold build_helper
-    split_ifs <;> try omega
-    simp [Vector.getElem_push]
-    split_ifs <;> try omega
-    unfold build_helper
-    split_ifs <;> try grind
-    simp
-  }
-⟩
+    (xs : Vector α n) : SegmentTree α n :=
+  let b := (build_helper n 0 xs)
+  ⟨
+    n,
+    n,
+    b.a.reverse,
+    h_n,
+    h_n_pow2,
+    by {
+      intro j h0j hjm
+      simp [Vector.get]
+      have proof := b.proof j (by omega) h0j hjm
+      simp [Vector.get] at proof
+      exact proof
+    }
+  ⟩
 
 noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
