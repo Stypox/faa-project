@@ -66,7 +66,69 @@ lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n)
     refine { assoc := ?_ }
     exact inst.mul_assoc
 
-lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st : SegmentTree α n)
+
+-- helper lemma
+lemma leaf_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n) (h0j : 0 < j) (hj2m: j < 2*st.m) :
+  let l := Nat.log2 j
+  let k := j - 2^l
+  let H := st.h_n_pow2.choose
+  let h := H - l
+  let L := 2^h * k
+  let R := L + 2^h
+  st.m ≤ j → (R = L+1 ∧ L = j-st.m) :=
+  by
+  set l := Nat.log2 j with h_l
+  set k := j - 2^l with h_k
+  set H := st.h_n_pow2.choose with h_H
+  set h := H - l with h_h
+  set L := 2^h * k with h_L
+  set R := L + 2^h with h_R
+  have H_spec := st.h_n_pow2.choose_spec
+  simp only []
+
+  intro hjm
+  have exp0 : H ≤ l := by -- in this case a[j] is a leaf of the tree
+      subst l
+      rw [H_spec] at hjm
+      subst H
+      rw [Nat.le_log2 ?_]
+      · assumption
+      · omega
+  have pow2_0 : 2^h = 1 := by
+    subst h
+    rw [Nat.sub_eq_zero_of_le exp0]
+    omega
+  have h_LeqR : R = L+1 := by
+    subst R
+    rw [pow2_0]
+  have h_leqm : st.m = 2^l := by
+    subst l
+    rw [Nat.le_antisymm_iff]
+    constructor
+    · rw [H_spec]
+      exact Nat.pow_le_pow_right (n:=2) (by omega) (i:=st.h_n_pow2.choose) (j:=j.log2) exp0
+    · rw [H_spec]
+      rw [Nat.pow_le_pow_iff_right (by omega)]
+      rw [Nat.le_iff_lt_add_one]
+      rw [Nat.log2_lt]
+      rw [Nat.pow_add_one 2 st.h_n_pow2.choose]
+      rw [← H_spec]
+      rw [Nat.mul_comm st.m 2]
+      assumption
+      omega
+
+  rw [← h_h, ← h_k, ← h_L, ← h_R, h_LeqR]
+  simp
+  subst L
+  rw [pow2_0]
+  simp
+  subst k
+  rw [h_leqm]
+
+
+
+
+lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
       let l := Nat.log2 j
       let k := j - 2^l
@@ -86,53 +148,21 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
   simp only []
 
   by_cases hjm : st.m ≤ j
-  · have exp0 : H ≤ l := by -- in this case a[j] is a leaf of the tree
-      subst l
-      rw [H_spec] at hjm
-      subst H
-      rw [Nat.le_log2 ?_]
-      · assumption
-      · omega
-    have pow2_0 : 2^h = 1 := by
-      subst h
-      rw [Nat.sub_eq_zero_of_le exp0]
-      omega
-    have h_LeqR : R = L+1 := by
-      subst R
-      rw [pow2_0]
-    have h_leqm : st.m = 2^l := by
-      subst l
-      rw [Nat.le_antisymm_iff]
-      constructor
-      · rw [H_spec]
-        exact Nat.pow_le_pow_right (n:=2) (by omega) (i:=st.h_n_pow2.choose) (j:=j.log2) exp0
-      · rw [H_spec]
-        rw [Nat.pow_le_pow_iff_right (by omega)]
-        rw [Nat.le_iff_lt_add_one]
-        rw [Nat.log2_lt]
-        rw [Nat.pow_add_one 2 st.h_n_pow2.choose]
-        rw [← H_spec]
-        rw [Nat.mul_comm st.m 2]
-        assumption
-        omega
+  · -- in this case a[j] is a leaf of the tree
+    have h_leaf := hjm
+    apply leaf_interval n j st h0j hj2m at h_leaf
+    rw [← h_h, ← h_k, ← h_L, ← h_R] at h_leaf
+    rw [← h_h, ← h_k, ← h_L, ← h_R, h_leaf.left, h_leaf.right]
 
-    rw [← h_h, ← h_k, ← h_L, ← h_R, h_LeqR]
     rw [foldl_single2 (h:=?_)] -- without (h:=?_) it says "don't know how to synthesize placeholder"
     · rw [Array.getElem_extract]
       simp [Vector.get]
       apply getElem_congr_idx
-      subst L
-      rw [pow2_0]
-      simp
-      subst k
-      rw [h_leqm]
-      omega
+      rw [Nat.add_sub_of_le hjm]
     · simp
       rw [Nat.min_eq_left ?_]
       · omega
-      · subst L
-        rw [pow2_0]
-        omega
+      · omega
 
   · rw [st.h_children j h0j (by omega)]   -- in this case a[j] is an internal node of the tree
     rw [st.h_coverage_interval (h0j:=by omega)]
@@ -340,21 +370,47 @@ def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n 
 noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
   where query_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
-    if h_jm : j ≥ st.m then
+    --if h_jm : j ≥ st.m then
+    --  if p=j ∧ q=j+1 then
+    --    st.a.get ⟨j, h_j⟩
+    --  else inst.one
+    --else
+    let l := Nat.log2 j
+    let k := j - 2^l
+    let H := st.h_n_pow2.choose
+    let h := H - l
+    let L := 2^h * k
+    let R := L + 2^h
+    if h_sub : p ≤ L ∧ R ≤ q then
       st.a.get ⟨j, h_j⟩
+    else if h_empty : q ≤ L ∨ p ≥ R then
+      inst.one
+    --else if h_jm : j ≥ st.m then
+    --  st.a.get ⟨j, h_j⟩
     else
-      let l := Nat.log2 j
-      let k := j - 2^l
-      let H := st.h_n_pow2.choose
-      let h := H - l
-      let L := 2^h * k
-      let R := L + 2^h
-      if L ≥ p ∧ R ≤ q then
-        st.a.get ⟨j, h_j⟩
-      else if q ≤ L ∨ p ≥ R then
-        inst.one
-      else
-        (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
+      have h_jm : j < st.m := by    -- if we got to this case, j is not a leaf
+        by_contra h_jm
+        simp_all
+        have h_leaf := h_jm
+        apply leaf_interval n j st h_j0 h_j at h_leaf
+        have h_l : l = Nat.log2 j := by rfl
+        have h_k : k = j - 2^l := by rfl
+        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_h : h = H - l := by rfl
+        have h_L : L = 2^h * k := by rfl
+        have h_R : R = L + 2^h := by rfl
+        rw [← h_h, ← h_k, ← h_L, ← h_R] at h_leaf
+        rw[h_leaf.left] at h_sub
+        rw[h_leaf.left] at h_empty
+        obtain ⟨he1, he2⟩ := h_empty
+        rw [Nat.lt_add_one_iff] at he2
+        apply h_sub at he2
+        rw [Nat.lt_add_one_iff] at he2
+        grw[he2] at he1
+        rw [lt_self_iff_false L] at he1
+        exact he1
+
+      (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
 
 lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
@@ -366,7 +422,29 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
   let R := L + 2^h
   query.query_aux α inst n st p q j h_j0 h_j = (st.a.toArray.extract (st.m + max L p) (st.m + min R q)).foldl (fun a b => a * b) 1
   := by
-  sorry
+
+  unfold query.query_aux
+  set l := Nat.log2 j with h_l
+  set k := j - 2^l with h_k
+  set H := st.h_n_pow2.choose with h_H
+  set h := H - l with h_h
+  set L := 2^h * k with h_L
+  set R := L + 2^h with h_R
+  have H_spec := st.h_n_pow2.choose_spec
+  simp only []
+  --rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R]
+
+  split_ifs <;> (
+    expose_names;
+    try rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R];
+    try rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R] at h_1;
+    try rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R] at h_2;
+    )
+  ·
+    sorry
+  · sorry
+  · sorry
+
 
 
 theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
