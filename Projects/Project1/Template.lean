@@ -2,8 +2,8 @@ import Mathlib.Tactic
 
 set_option autoImplicit false
 
-def V : Array ℕ := [1, 2, 3].toArray
-#eval Array.foldl (fun a b => (a + b)) 0 V 1 2
+--def V : Array ℕ := [1, 2, 3].toArray
+--#eval Array.foldl (fun a b => (a + b)) 0 V 1 2
 
 structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   n := n
@@ -35,44 +35,6 @@ lemma foldl_single2 {α : Type*} (a : Array α) (op : α → α → α) (init : 
   rw [Array.foldl_toList op] at h_list
   assumption
 
-def monoid_foldl (α : Type*) [Monoid α] (n : ℕ) (as : Vector α n) (l r : ℕ) : α :=
-  if h_start : l < as.size then
-    if l < r then
-      as.get ⟨l, h_start⟩ * monoid_foldl α n as (l+1) r
-    else
-      1
-  else
-    1
-
-theorem monoid_foldl_single (α : Type*) [Monoid α] (n : ℕ) (as : Vector α n) (l r : ℕ)
-    (h_l : l < as.size) (h_lr : l + 1 = r) :
-    monoid_foldl α n as l r = as.get ⟨l, h_l⟩ := by
-  unfold monoid_foldl
-  split_ifs with h_start_stop_2
-  · unfold monoid_foldl
-    split_ifs
-    · omega
-    · apply MulOneClass.mul_one
-    · apply MulOneClass.mul_one
-  · omega
-
-theorem monoid_foldl_combine (α : Type*) [Monoid α] (n : ℕ) (as : Vector α n)
-    (l c r : ℕ) (h_lc : l ≤ c) (h_cr : c ≤ r) (h_bounds : r < as.size) :
-    (monoid_foldl α n as l c) * (monoid_foldl α n as c r) = monoid_foldl α n as l r := by
-  if h_lc0 : l = c then {
-    rw [monoid_foldl.eq_def α n as l c]
-    split_ifs with h_lbounds h_lgeqc <;> try omega
-    rw [← h_lc0]
-    apply one_mul
-  } else {
-    rw [monoid_foldl.eq_def α n as l c]
-    split_ifs with h_lbounds h_lgeqc <;> try omega
-    rw [mul_assoc (as.get ⟨l, h_lbounds⟩) (monoid_foldl α n as (l + 1) c) (monoid_foldl α n as c r)]
-    rw [monoid_foldl_combine] <;> try omega
-    rw [monoid_foldl.eq_def α n as l r]
-    split_ifs <;> try omega
-    rfl
-  }
 
 -- helper lemma
 lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n) (h_bounds: l ≤ mid ∧ mid ≤ r):
@@ -176,7 +138,7 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
     rw [st.h_coverage_interval (h0j:=by omega)]
     rw [st.h_coverage_interval (h0j:=by omega)]
 
-    have expNot0 : l < H := by -- in this case a[j] is a leaf of the tree
+    have expNot0 : l < H := by
       subst l
       simp at hjm
       rw [H_spec] at hjm
@@ -185,7 +147,7 @@ lemma SegmentTree.h_coverage_interval (α : Type*) [Monoid α] (n j : ℕ) (st :
       omega
 
     set aL := st.m + L with h_aL
-    set aC := st.m + 2^(h-1)*(2*k+1) with h_aC
+    set aC := st.m + 2^(h-1)*(2*k+1) with h_aC  -- = (aL + aR)/2
     set aR := st.m + R with h_aR
 
     rw [show (st.m + 2 ^ (st.h_n_pow2.choose - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2)) = aL by {
@@ -393,3 +355,61 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
         inst.one
       else
         (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
+
+
+lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
+  let l := Nat.log2 j
+  let k := j - 2^l
+  let H := st.h_n_pow2.choose
+  let h := H - l
+  let L := 2^h * k
+  let R := L + 2^h
+  query.query_aux α inst n st p q j h_j0 h_j = (st.a.toArray.extract (st.m + max L p) (st.m + min R q)).foldl (fun a b => a * b) 1
+  := by
+  sorry
+
+
+theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+  query α inst n st p q =  (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
+  := by
+  unfold query
+  have h1 : 1 < 2*st.m := by
+    have htmp := st.h_m
+    rw [show (st.m > 0) = (0 < st.m) from rfl] at htmp
+    rw [Nat.lt_iff_add_one_le] at htmp
+    simp_all
+    calc
+      1 < 2 := by trivial
+      _ = 2*1 := by trivial
+      _ ≤ 2*st.m := by grw[htmp]
+  rw [query_aux_correctness α inst n 1 p q st (by omega) h1]
+  rw [show 2 ^ Nat.log2 1 = 1 from rfl]
+  rw [show 1 - 1 = 0 from rfl]
+  rw [Nat.mul_zero (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
+  rw [Nat.zero_max p]
+  rw [Nat.zero_add (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
+  rw [show Nat.log2 1 = 0 from rfl]
+  rw [Nat.sub_zero st.h_n_pow2.choose]
+  have htmp := st.h_n_pow2.choose_spec
+  rw[← htmp]
+  suffices h_arr_estr : (st.a.toArray.extract (st.m + p) (st.m + min st.m q)) = (st.a.toArray.extract (st.m + p) (st.m + q)) by
+    rw[h_arr_estr]
+  rw [← Nat.add_min_add_left st.m st.m q]
+  rw [← Nat.two_mul st.m]
+  have h_2m_s : 2*st.m = st.a.toArray.size := by grind
+  nth_rw 2 [h_2m_s]
+  rw [show
+      st.a.toArray.extract (st.m + p) (min st.a.toArray.size (st.m + q)) =
+        Array.extract.loop st.a.toArray
+          ((min (min st.a.toArray.size (st.m + q)) st.a.toArray.size).sub (st.m + p)) (st.m + p)
+          (Array.emptyWithCapacity
+            ((min (min st.a.toArray.size (st.m + q)) st.a.toArray.size).sub (st.m + p)))
+      from rfl]
+  nth_rw 1 [Nat.min_right_comm st.a.toArray.size (st.m + q) st.a.toArray.size]
+  rw [Nat.min_self st.a.toArray.size]
+  rw [show
+      st.a.toArray.extract (st.m + p) (st.m + q) =
+        Array.extract.loop st.a.toArray ((min (st.m + q) st.a.toArray.size).sub (st.m + p))
+          (st.m + p) (Array.emptyWithCapacity ((min (st.m + q) st.a.toArray.size).sub (st.m + p)))
+      from rfl]
+  grind
