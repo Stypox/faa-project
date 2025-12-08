@@ -433,6 +433,9 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
   have H_spec := st.h_n_pow2.choose_spec
   simp only []
   --rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R]
+  have h_LltR : L < R := by
+    subst R
+    simp
 
   split_ifs <;> (
     expose_names;
@@ -440,12 +443,33 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
     try rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R] at h_1;
     try rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R] at h_2;
     )
-  ·
+  · -- case where coverage interval [L, R) is completely included in query interval [p, q)
+    rw [Nat.max_eq_left h_1.left]
+    rw [Nat.min_eq_left h_1.right]
+    rw [st.h_coverage_interval n j h_j0 h_j]
+
+  · -- case where coverage interval [L, R) and query interval [p, q) are disjoint
+    --simp at h_1
+    cases h_2 <;> expose_names
+    · rw [Nat.min_eq_right (by {grw[h_2]; omega})]
+      suffices h_ineq : q ≤ max L p by
+          rw [Array.extract_eq_empty_of_le ?_]
+          · rw[Array.foldl_empty]
+            rfl
+          · rw [st.a.size_toArray]
+            rw [Nat.two_mul st.m]
+            rw [Nat.add_min_add_left st.m q st.m]
+            rw [Nat.add_le_add_iff_left]
+            trans q
+            · omega
+            · assumption
+      trans L <;> omega
+    · sorry
+  · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
+    -- (and we are surely not in a leaf node)
     sorry
-  · sorry
-  · sorry
 
-
+#check Array.foldl_empty
 
 theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
   query α inst n st p q =  (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
