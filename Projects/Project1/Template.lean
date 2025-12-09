@@ -437,7 +437,6 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
     rw[H_spec]
     rw [Nat.log2_two_pow]
   simp only []
-  --rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R]
   have h_LltR : L < R := by
     subst R
     simp
@@ -484,6 +483,7 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
       · omega
       · grw[h_2]
         omega
+
   · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
     simp at h_1
     simp at h_2
@@ -566,20 +566,71 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
       rw [Nat.two_pow_pred_mul_two (by omega)]
       rw [Nat.mul_add_one (2 ^ h) k]
       rw[← h_L, ← h_R, ← h_C]
-      suffices h_eq_mid : (st.m + min C q) = (st.m + max C p) ∨ q ≤ p by
-        rw[h_eq_mid]
+
+      -- splittare in 3 casi:
+      -- 1. p>=C (ovvero l'intersez tra l'intervallo query e la prima meta' del coverage interval e' vuota)
+      -- 2. q<=C (ovvero l'intersezione con la seconda meta' e' vuota)
+      -- 2. p < C < q, quindi si usa foldl combine
+      have h_Cmid : L < C ∧ C < R := by
+        subst L; subst C; subst R
+        rw [Nat.mul_add_one (2 ^ (h - 1)) (2 * k)]
+        rw [← Nat.mul_assoc (2 ^ (h - 1)) 2 k]
+        rw [Nat.pow_pred_mul (by omega)]
+        rw [Nat.lt_add_right_iff_pos]
+        rw [Nat.add_lt_add_iff_left]
+        constructor
+        · rw [Nat.pow_pos_iff]; left; omega
+        · rw [Nat.pow_lt_pow_iff_right (by omega)]
+          omega
+
+      if h_pC : C ≤ p then
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rw [one_mul]
+          have htmp: max C p = p := by omega
+          rw[htmp]
+          have htmp: max L p = p := by omega
+          rw[htmp]
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min C q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans C
+          · omega
+          · omega
+      else if h_Cq : q ≤ C then
+        simp at h_pC
+        set fold1 := Array.foldl (fun a b ↦ a * b) 1 (st.a.toArray.extract (st.m + max L p) (st.m + min C q)) with h_f1
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rw[mul_one]
+          subst fold1
+          have htmp: min C q = q := by omega
+          rw[htmp]
+          have htmp: min R q = q := by omega
+          rw[htmp]
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min R q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans C
+          · omega
+          · omega
+      else
+        simp at h_pC
+        simp at h_Cq
+        have htmp : min C q = C := by omega
+        rw[htmp]
+        have htmp : max C p = C := by omega
+        rw[htmp]
+        clear htmp
         rw[foldl_combine]
         rw [Nat.add_le_add_iff_left]
         rw [Nat.add_le_add_iff_left]
-        rw [Nat.add_right_inj] at h_eq_mid
+        constructor
+        · omega
+        · omega
 
-        nth_rw 2 [← h_eq_mid]
-        sorry
-
-      rw [Nat.add_right_inj]
-
-
-      sorry
     · rw [Nat.mul_le_mul_left_iff (by omega)]
       subst l
       rw [← Nat.le_log2 (by omega)]
