@@ -381,9 +381,10 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
     let h := H - l
     let L := 2^h * k
     let R := L + 2^h
+    -- si potrebbe fare un primo if che controlla se l'intervallo [p, q) e' vuoto
     if h_sub : p ≤ L ∧ R ≤ q then
       st.a.get ⟨j, h_j⟩
-    else if h_empty : q ≤ L ∨ p ≥ R then
+    else if h_disjoint : q ≤ L ∨ R ≤ p then
       inst.one
     --else if h_jm : j ≥ st.m then
     --  st.a.get ⟨j, h_j⟩
@@ -401,17 +402,18 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
         have h_R : R = L + 2^h := by rfl
         rw [← h_h, ← h_k, ← h_L, ← h_R] at h_leaf
         rw[h_leaf.left] at h_sub
-        rw[h_leaf.left] at h_empty
-        obtain ⟨he1, he2⟩ := h_empty
-        rw [Nat.lt_add_one_iff] at he2
-        apply h_sub at he2
-        rw [Nat.lt_add_one_iff] at he2
-        grw[he2] at he1
-        rw [lt_self_iff_false L] at he1
-        exact he1
+        rw[h_leaf.left] at h_disjoint
+        obtain ⟨hd1, hd2⟩ := h_disjoint
+        rw [Nat.lt_add_one_iff] at hd2
+        apply h_sub at hd2
+        rw [Nat.lt_add_one_iff] at hd2
+        grw[hd2] at hd1
+        rw [lt_self_iff_false L] at hd1
+        exact hd1
 
       (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
+#check Array.extract_eq_empty_of_le
 
 lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let l := Nat.log2 j
@@ -431,8 +433,10 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
   set L := 2^h * k with h_L
   set R := L + 2^h with h_R
   have H_spec := st.h_n_pow2.choose_spec
+  have H_spec2: H = st.m.log2 := by
+    rw[H_spec]
+    rw [Nat.log2_two_pow]
   simp only []
-  --rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R]
   have h_LltR : L < R := by
     subst R
     simp
@@ -453,22 +457,187 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
     cases h_2 <;> expose_names
     · rw [Nat.min_eq_right (by {grw[h_2]; omega})]
       suffices h_ineq : q ≤ max L p by
-          rw [Array.extract_eq_empty_of_le ?_]
-          · rw[Array.foldl_empty]
-            rfl
-          · rw [st.a.size_toArray]
-            rw [Nat.two_mul st.m]
-            rw [Nat.add_min_add_left st.m q st.m]
-            rw [Nat.add_le_add_iff_left]
-            trans q
-            · omega
-            · assumption
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rfl
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m q st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans q
+          · omega
+          · assumption
       trans L <;> omega
-    · sorry
-  · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
-    -- (and we are surely not in a leaf node)
-    sorry
+    · suffices h_ineq : min R q ≤ max L p by
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rfl
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min R q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans (min R q)
+          · omega
+          · assumption
+      trans R
+      · omega
+      · grw[h_2]
+        omega
 
+  · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
+    simp at h_1
+    simp at h_2
+
+    -- (and we are surely not in a leaf node)
+    have h_jm : j < st.m := by
+        by_contra h_jm
+        simp at h_jm
+        have h_leaf := h_jm
+        apply leaf_interval n j st h_j0 h_j at h_leaf
+        have h_l : l = Nat.log2 j := by rfl
+        have h_k : k = j - 2^l := by rfl
+        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_h : h = H - l := by rfl
+        have h_L : L = 2^h * k := by rfl
+        have h_R : R = L + 2^h := by rfl
+        rw [← h_h, ← h_k, ← h_L, ← h_R] at h_leaf
+        rw[h_leaf.left] at h_1
+        rw[h_leaf.left] at h_2
+        obtain ⟨hd1, hd2⟩ := h_2
+        rw [Nat.lt_add_one_iff] at hd2
+        apply h_1 at hd2
+        rw [Nat.lt_add_one_iff] at hd2
+        grw[hd2] at hd1
+        rw [lt_self_iff_false L] at hd1
+        exact hd1
+
+    have h_lH : l < H := by
+      subst l
+      rw[h_H]
+      rw [Nat.log2_lt (by omega)]
+      rw [← H_spec]
+      assumption
+
+
+    set C := 2^(h-1)*(2*k+1) with h_C --(L+R)/2 with h_C
+    rw [query_aux_correctness α inst n (2*j) p q st (by omega)]
+    rw [query_aux_correctness α inst n (2*j+1) p q st (by omega)]
+
+    rw [← h_H]
+    have h_eq_logs : (2 * j + 1).log2 = (2 * j).log2 := by
+      rw [Nat.log2_eq_iff (by omega)]
+      constructor
+      · trans 2*j
+        · rw [← Nat.le_log2 (by omega)]
+        · omega
+      · rw [lt_iff_le_and_ne]
+        constructor
+        · rw [Nat.add_one_le_iff]
+          rw [Nat.add_one (2 * j).log2]
+          have hb: 1<2 := by omega
+          apply Nat.lt_pow_succ_log_self at hb
+          specialize hb (2*j)
+          rw [Nat.log2_eq_log_two]
+          assumption
+        · rw [Nat.pow_add_one']
+          by_contra a
+          have h_2div : 2 ∣ 2 * 2 ^ (2 * j).log2 := by omega
+          rw[← a] at h_2div
+          rw [Nat.dvd_add_right (by omega)] at h_2div
+          contradiction
+
+    rw[h_eq_logs]
+    rw [Nat.log2_two_mul (by omega)]
+    rw[← h_l]
+    rw [Nat.sub_add_eq H l 1]
+    rw[← h_h]
+    rw [Nat.pow_add_one']
+    rw [Nat.sub_add_comm]
+    · rw [← Nat.mul_sub 2 j (2 ^ l)]
+      rw[← h_k]
+      rw [← Nat.mul_add_one (2 ^ (h - 1)) (2 * k)]
+      rw [← Nat.mul_assoc (2 ^ (h - 1)) 2 k]
+      rw [Nat.two_pow_pred_mul_two (by omega)]
+      rw [← Nat.mul_add_one (2 ^ (h - 1)) (2 * k + 1)]
+      rw [Nat.add_assoc (2 * k) 1 1]
+      rw [show 1 + 1 = 2 from rfl]
+      rw [← Nat.mul_add_one 2 k]
+      rw [← Nat.mul_assoc (2 ^ (h - 1)) 2 (k + 1)]
+      rw [Nat.two_pow_pred_mul_two (by omega)]
+      rw [Nat.mul_add_one (2 ^ h) k]
+      rw[← h_L, ← h_R, ← h_C]
+
+      -- splittare in 3 casi:
+      -- 1. p>=C (ovvero l'intersez tra l'intervallo query e la prima meta' del coverage interval e' vuota)
+      -- 2. q<=C (ovvero l'intersezione con la seconda meta' e' vuota)
+      -- 2. p < C < q, quindi si usa foldl combine
+      have h_Cmid : L < C ∧ C < R := by
+        subst L; subst C; subst R
+        rw [Nat.mul_add_one (2 ^ (h - 1)) (2 * k)]
+        rw [← Nat.mul_assoc (2 ^ (h - 1)) 2 k]
+        rw [Nat.pow_pred_mul (by omega)]
+        rw [Nat.lt_add_right_iff_pos]
+        rw [Nat.add_lt_add_iff_left]
+        constructor
+        · rw [Nat.pow_pos_iff]; left; omega
+        · rw [Nat.pow_lt_pow_iff_right (by omega)]
+          omega
+
+      if h_pC : C ≤ p then
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rw [one_mul]
+          have htmp: max C p = p := by omega
+          rw[htmp]
+          have htmp: max L p = p := by omega
+          rw[htmp]
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min C q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans C
+          · omega
+          · omega
+      else if h_Cq : q ≤ C then
+        simp at h_pC
+        set fold1 := Array.foldl (fun a b ↦ a * b) 1 (st.a.toArray.extract (st.m + max L p) (st.m + min C q)) with h_f1
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rw[mul_one]
+          subst fold1
+          have htmp: min C q = q := by omega
+          rw[htmp]
+          have htmp: min R q = q := by omega
+          rw[htmp]
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min R q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans C
+          · omega
+          · omega
+      else
+        simp at h_pC
+        simp at h_Cq
+        have htmp : min C q = C := by omega
+        rw[htmp]
+        have htmp : max C p = C := by omega
+        rw[htmp]
+        clear htmp
+        rw[foldl_combine]
+        rw [Nat.add_le_add_iff_left]
+        rw [Nat.add_le_add_iff_left]
+        constructor
+        · omega
+        · omega
+
+    · rw [Nat.mul_le_mul_left_iff (by omega)]
+      subst l
+      rw [← Nat.le_log2 (by omega)]
+
+
+
+#check Nat.lt_pow_succ_log_self
 #check Array.foldl_empty
 
 theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
