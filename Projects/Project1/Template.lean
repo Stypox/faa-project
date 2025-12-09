@@ -855,8 +855,6 @@ instance NatWithSum : Monoid Nat where
   one_mul := Nat.zero_add
   mul_assoc := Nat.add_assoc
 
---variable (n := 8)
-
 variable (xs : Vector ℕ 8 :=
   ⟨#[5, 8, 6, 3, 2, 7, 2, 6],
     by decide⟩)
@@ -866,6 +864,10 @@ def albero := build ℕ NatWithSum 8 (by omega) 3 (by omega) xs
 #check albero
 #eval albero.a
 #eval query ℕ NatWithSum 8 albero 2 8
+
+def albero1 := update ℕ NatWithSum 8 albero 5 3
+#check albero1
+#eval albero1.a
 
 
 
