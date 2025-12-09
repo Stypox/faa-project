@@ -485,12 +485,12 @@ theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : Segment
       _ = 2*1 := by trivial
       _ ≤ 2*st.m := by grw[htmp]
   rw [query_aux_correctness α inst n 1 p q st (by omega) h1]
-  rw [show 2 ^ Nat.log2 1 = 1 from rfl]
+  rw [show 2 ^ Nat.log2 1 = 1 by simp [Nat.log2_eq_log_two]]
   rw [show 1 - 1 = 0 from rfl]
   rw [Nat.mul_zero (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
   rw [Nat.zero_max p]
   rw [Nat.zero_add (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
-  rw [show Nat.log2 1 = 0 from rfl]
+  rw [show Nat.log2 1 = 0 by simp [Nat.log2_eq_log_two]]
   rw [Nat.sub_zero st.h_n_pow2.choose]
   have htmp := st.h_n_pow2.choose_spec
   rw[← htmp]
@@ -515,3 +515,99 @@ theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : Segment
           (st.m + p) (Array.emptyWithCapacity ((min (st.m + q) st.a.toArray.size).sub (st.m + p)))
       from rfl]
   grind
+
+structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
+  a : Vector α (2*m)
+  proof (i : ℕ) (h_i_lb : i ≥ j) (h_i0 : i > 0) (h_i_ub : i < m) :
+    a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
+
+noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+  let b := update_aux 1 (by omega) (by have := st.h_m; omega) ⟨st.a, by {
+    intro i _ h_i h_i_ub
+    exact st.h_children i h_i h_i_ub
+  }⟩
+  ⟨
+    st.n,
+    st.m,
+    b.a,
+    st.h_m,
+    st.h_n_pow2,
+    by {
+      intro j h_j hjm
+      exact b.proof j (by omega) h_j hjm
+    }
+  ⟩
+
+  where update_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) (b : UpdateHelperStruct α st.m j) : UpdateHelperStruct α st.m j :=
+    let l := Nat.log2 j
+    let k := j - 2^l
+    let H := st.h_n_pow2.choose
+    let h := H - l
+    let L := 2^h * k
+    let R := L + 2^h
+    if h_sub : p = L ∧ p = R-1 then
+      ⟨
+        b.a.set j x h_j,
+        by {
+          -- just proving that we are in a leaf...
+          intro i h_ij h_i0 h_i_ub
+          suffices ¬(i < st.m) by contradiction
+          obtain ⟨h_pL, h_pR⟩ := h_sub
+          rw [h_pL] at h_pR
+          subst R
+          subst L
+          rw [eq_tsub_iff_add_eq_of_le (by exact NeZero.one_le)] at h_pR
+          rw [Nat.add_right_inj] at h_pR
+          have h_pR := h_pR.symm
+          rw [Nat.pow_eq_one] at h_pR
+          rw [or_iff_right (by trivial)] at h_pR
+          subst h
+          rw [Nat.sub_eq_zero_iff_le] at h_pR
+          have h_pR : 2^H ≤ 2^l := by refine Nat.pow_le_pow_right (by omega) h_pR
+          subst l
+          subst H
+          rw [← st.h_n_pow2.choose_spec] at h_pR
+          rw [Nat.log2_eq_log_two] at h_pR
+          simp
+          grw [h_ij]
+          trans 2 ^ Nat.log 2 j
+          · assumption
+          · rw [Nat.pow_le_iff_le_log (by omega) (by omega)]
+        }
+      ⟩
+    else if h_empty : p < L ∨ p ≥ R then
+      b
+    else
+      have h_jm : j < st.m := by    -- if we got to this case, j is not a leaf
+        by_contra h_jm
+        simp_all
+        have h_leaf := h_jm
+        apply leaf_interval n j st h_j0 h_j at h_leaf
+        have h_l : l = Nat.log2 j := by rfl
+        have h_k : k = j - 2^l := by rfl
+        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_h : h = H - l := by rfl
+        have h_L : L = 2^h * k := by rfl
+        have h_R : R = L + 2^h := by rfl
+        rw [← h_h, ← h_k, ← h_L, ← h_R] at h_leaf
+        rw[h_leaf.left] at h_sub
+        rw[h_leaf.left] at h_empty
+        obtain ⟨he1, he2⟩ := h_empty
+        rw [Nat.lt_add_one_iff] at he2
+        have h_Pl : p = L := by omega
+        simp_all
+
+      let b := update_aux (2*j) (by omega) (by omega) ⟨b.a, by {
+        intro i h_ij h_i h_i_ub
+        exact b.proof i (by omega) h_i (by omega)
+      }⟩
+      let b := update_aux (2*j + 1) (by omega) (by omega) ⟨b.a, by {
+        intro i h_ij h_i h_i_ub
+        exact b.proof i (by omega) h_i (by omega)
+      }⟩
+      ⟨
+        b.a.set j (b.a.get ⟨2*j, by omega⟩ * b.a.get ⟨2*j + 1, by omega⟩) h_j,
+        by {
+
+        }
+      ⟩
