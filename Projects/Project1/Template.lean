@@ -348,7 +348,7 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
       ⟩
 
 
-def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
+def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
     (xs : Vector α n) : SegmentTree α n :=
   let b := (build_helper n 0 xs)
   ⟨
@@ -370,11 +370,6 @@ def build (α : Type*) [Monoid α] (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n 
 noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
   where query_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
-    --if h_jm : j ≥ st.m then
-    --  if p=j ∧ q=j+1 then
-    --    st.a.get ⟨j, h_j⟩
-    --  else inst.one
-    --else
     let l := Nat.log2 j
     let k := j - 2^l
     let H := st.h_n_pow2.choose
@@ -830,3 +825,44 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
             }) h_i_ub
         }
       ⟩
+
+
+
+
+-- EXAMPLES
+section Examples
+
+
+#check (inferInstance : AddMonoid Nat)
+#check Monoid
+#check Additive Nat
+#check (inferInstance : Monoid Nat)
+--#check (inferInstance : Monoid (Additive Nat))
+
+section NatSum
+
+instance NatWithSum : Monoid Nat where
+  mul := Nat.add
+  one := 0
+  mul_one := Nat.add_zero
+  one_mul := Nat.zero_add
+  mul_assoc := Nat.add_assoc
+
+--variable (n := 8)
+
+variable (xs : Vector ℕ 8 :=
+  ⟨#[5, 8, 6, 3, 2, 7, 2, 6],
+    by decide⟩)
+
+def albero := build ℕ NatWithSum 8 (by omega) (by use 3; omega) xs
+
+#check albero
+#eval albero.a
+#eval query ℕ NatWithSum 8 albero 2 8
+
+
+
+end NatSum
+
+
+end Examples
