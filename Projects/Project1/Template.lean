@@ -383,7 +383,7 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
     let R := L + 2^h
     if h_sub : p ≤ L ∧ R ≤ q then
       st.a.get ⟨j, h_j⟩
-    else if h_empty : q ≤ L ∨ p ≥ R then
+    else if h_empty : q ≤ L ∨ R ≤ p then
       inst.one
     --else if h_jm : j ≥ st.m then
     --  st.a.get ⟨j, h_j⟩
@@ -412,6 +412,7 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
 
       (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
+#check Array.extract_eq_empty_of_le
 
 lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let l := Nat.log2 j
@@ -431,6 +432,9 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
   set L := 2^h * k with h_L
   set R := L + 2^h with h_R
   have H_spec := st.h_n_pow2.choose_spec
+  have H_spec2: H = st.m.log2 := by
+    rw[H_spec]
+    rw [Nat.log2_two_pow]
   simp only []
   --rw [← h_H, ← h_h, ← h_k, ← h_L, ← h_R]
   have h_LltR : L < R := by
@@ -453,18 +457,32 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
     cases h_2 <;> expose_names
     · rw [Nat.min_eq_right (by {grw[h_2]; omega})]
       suffices h_ineq : q ≤ max L p by
-          rw [Array.extract_eq_empty_of_le ?_]
-          · rw[Array.foldl_empty]
-            rfl
-          · rw [st.a.size_toArray]
-            rw [Nat.two_mul st.m]
-            rw [Nat.add_min_add_left st.m q st.m]
-            rw [Nat.add_le_add_iff_left]
-            trans q
-            · omega
-            · assumption
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rfl
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m q st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans q
+          · omega
+          · assumption
       trans L <;> omega
-    · sorry
+    · suffices h_ineq : min R q ≤ max L p by
+        rw [Array.extract_eq_empty_of_le ?_]
+        · rw[Array.foldl_empty]
+          rfl
+        · rw [st.a.size_toArray]
+          rw [Nat.two_mul st.m]
+          rw [Nat.add_min_add_left st.m (min R q) st.m]
+          rw [Nat.add_le_add_iff_left]
+          trans (min R q)
+          · omega
+          · assumption
+      trans R
+      · omega
+      · grw[h_2]
+        omega
   · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
     -- (and we are surely not in a leaf node)
     sorry
