@@ -518,13 +518,13 @@ theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : Segment
 
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m)
-  proof (i : ℕ) (h_i_lb : i ≥ j) (h_i0 : i > 0) (h_i_ub : i < m) :
+  proof (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m) :
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
 noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
   let b := update_aux 1 (by omega) (by have := st.h_m; omega) ⟨st.a, by {
-    intro i _ h_i h_i_ub
-    exact st.h_children i h_i h_i_ub
+    intro i _ _ h_i_ub
+    exact st.h_children i (by omega) h_i_ub
   }⟩
   ⟨
     st.n,
@@ -534,7 +534,12 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
     st.h_n_pow2,
     by {
       intro j h_j hjm
-      exact b.proof j (by omega) h_j hjm
+      exact b.proof j (by omega) (by {
+        -- don't know why omega isn't working for something this trivial
+        intro g h_g0
+        rw [Nat.div_eq_of_lt (by {rw [Nat.one_lt_two_pow_iff]; omega})]
+        omega
+      }) hjm
     }
   ⟩
 
@@ -546,33 +551,39 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
     let L := 2^h * k
     let R := L + 2^h
     if h_sub : p = L ∧ p = R-1 then
+      have h_jm : j ≥ st.m := by    -- if we got to this case, j is a leaf
+        obtain ⟨h_pL, h_pR⟩ := h_sub
+        rw [h_pL] at h_pR
+        subst R
+        subst L
+        rw [eq_tsub_iff_add_eq_of_le (by exact NeZero.one_le)] at h_pR
+        rw [Nat.add_right_inj] at h_pR
+        have h_pR := h_pR.symm
+        rw [Nat.pow_eq_one] at h_pR
+        rw [or_iff_right (by trivial)] at h_pR
+        subst h
+        rw [Nat.sub_eq_zero_iff_le] at h_pR
+        have h_pR : 2^H ≤ 2^l := by refine Nat.pow_le_pow_right (by omega) h_pR
+        subst l
+        subst H
+        rw [← st.h_n_pow2.choose_spec] at h_pR
+        rw [Nat.log2_eq_log_two] at h_pR
+        simp
+        trans 2 ^ Nat.log 2 j
+        · assumption
+        · rw [Nat.pow_le_iff_le_log (by omega) (by omega)]
+
       ⟨
         b.a.set j x h_j,
         by {
-          -- just proving that we are in a leaf...
-          intro i h_ij h_i0 h_i_ub
-          suffices ¬(i < st.m) by contradiction
-          obtain ⟨h_pL, h_pR⟩ := h_sub
-          rw [h_pL] at h_pR
-          subst R
-          subst L
-          rw [eq_tsub_iff_add_eq_of_le (by exact NeZero.one_le)] at h_pR
-          rw [Nat.add_right_inj] at h_pR
-          have h_pR := h_pR.symm
-          rw [Nat.pow_eq_one] at h_pR
-          rw [or_iff_right (by trivial)] at h_pR
-          subst h
-          rw [Nat.sub_eq_zero_iff_le] at h_pR
-          have h_pR : 2^H ≤ 2^l := by refine Nat.pow_le_pow_right (by omega) h_pR
-          subst l
-          subst H
-          rw [← st.h_n_pow2.choose_spec] at h_pR
-          rw [Nat.log2_eq_log_two] at h_pR
-          simp
-          grw [h_ij]
-          trans 2 ^ Nat.log 2 j
-          · assumption
-          · rw [Nat.pow_le_iff_le_log (by omega) (by omega)]
+          intro i h_i0 h_i_neq_j2 h_i_ub
+          simp [Vector.set, Vector.get, Array.set, List.getElem_set]
+          split_ifs with h1 h2 h3 h3 <;> try omega
+          · specialize h_i_neq_j2 1 (by omega)
+            omega
+          · specialize h_i_neq_j2 1 (by omega)
+            omega
+          · exact b.proof i h_i0 h_i_neq_j2 h_i_ub
         }
       ⟩
     else if h_empty : p < L ∨ p ≥ R then
@@ -598,16 +609,55 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
         simp_all
 
       let b := update_aux (2*j) (by omega) (by omega) ⟨b.a, by {
-        intro i h_ij h_i h_i_ub
-        exact b.proof i (by omega) h_i (by omega)
+        intro i h_i0 h_i_neq_j2 h_i_ub
+        exact b.proof i h_i0 (by {
+          intro g _
+          specialize h_i_neq_j2 (g+1) (by omega)
+          rw [Nat.pow_add_one 2 g] at h_i_neq_j2
+          rw [pow_mul_comm' 2 g] at h_i_neq_j2
+          rw [Nat.mul_div_mul_left j (2 ^ g) (by omega)] at h_i_neq_j2
+          assumption
+        }) (by omega)
       }⟩
       let b := update_aux (2*j + 1) (by omega) (by omega) ⟨b.a, by {
-        intro i h_ij h_i h_i_ub
-        exact b.proof i (by omega) h_i (by omega)
+        intro i h_i0 h_i_neq_j2 h_i_ub
+        exact b.proof i (by omega) (by {
+          intro g h_g0
+          specialize h_i_neq_j2 g (by omega)
+          rw [show 2 * j / 2 ^ g = (2 * j + 1) / 2 ^ g by {
+            rcases g with _ | g <;> try contradiction
+            rw [Nat.pow_add_one']
+            rw [← Nat.div_div_eq_div_mul (2 * j + 1) 2 (2 ^ g)]
+            rw [Nat.mul_div_mul_left j (2 ^ g) (by omega)]
+            nth_rw 1 [show j = (2 * j + 1) / 2 by omega]
+          }]
+          assumption
+        }) (by omega)
       }⟩
       ⟨
         b.a.set j (b.a.get ⟨2*j, by omega⟩ * b.a.get ⟨2*j + 1, by omega⟩) h_j,
         by {
-
+          intro i h_i0 h_i_neq_j2 h_i_ub
+          simp [Vector.set, Vector.get, Array.set, List.getElem_set]
+          split_ifs with h1 h2 h3 h3 <;> try omega
+          · simp_all
+          · specialize h_i_neq_j2 1 (by omega)
+            omega
+          · specialize h_i_neq_j2 1 (by omega)
+            omega
+          · exact b.proof i h_i0 (by {
+              intro g h_g0
+              if h_g1 : g = 1 then {
+                rw [h_g1]
+                omega
+              } else {
+                specialize h_i_neq_j2 (g-1) (by omega)
+                rw [← Nat.two_pow_pred_mul_two (by omega)]
+                rw [Nat.mul_comm (2 ^ (g - 1)) 2]
+                rw [← Nat.div_div_eq_div_mul (2 * j + 1) 2 (2 ^ (g - 1))]
+                rw [show (2 * j + 1) / 2 = j by omega]
+                assumption
+              }
+            }) h_i_ub
         }
       ⟩
