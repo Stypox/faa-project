@@ -654,12 +654,12 @@ theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : Segment
       _ = 2*1 := by trivial
       _ ≤ 2*st.m := by grw[htmp]
   rw [query_aux_correctness α inst n 1 p q st (by omega) h1]
-  rw [show 2 ^ Nat.log2 1 = 1 by simp [Nat.log2_eq_log_two]]
+  rw [show 2 ^ Nat.log2 1 = 1 from rfl]
   rw [show 1 - 1 = 0 from rfl]
   rw [Nat.mul_zero (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
   rw [Nat.zero_max p]
   rw [Nat.zero_add (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
-  rw [show Nat.log2 1 = 0 by simp [Nat.log2_eq_log_two]]
+  rw [show Nat.log2 1 = 0 from rfl]
   rw [Nat.sub_zero st.h_n_pow2.choose]
   have htmp := st.h_n_pow2.choose_spec
   rw[← htmp]
@@ -740,7 +740,7 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
         simp
         trans 2 ^ Nat.log 2 j
         · assumption
-        · rw [Nat.pow_le_iff_le_log (by omega) (by omega)]
+        · rw [← Nat.le_log_iff_pow_le (by omega) (by omega)]
 
       ⟨
         b.a.set j x h_j,
