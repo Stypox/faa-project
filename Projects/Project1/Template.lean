@@ -8,12 +8,13 @@ set_option autoImplicit false
 structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   n := n
   m := n -- temporary
+  H : ℕ
   -- TODO maybe store original vector
   a : Vector α (2*m)
 
   -- assumptions
   h_m : m > 0
-  h_n_pow2 : ∃ k, m = 2^k -- temporary
+  h_m_pow2H : m = 2^H -- temporary
   h_children (j : ℕ) (h0j : 0 < j) (hjm: j < m) :
     (a.get ⟨j, by omega⟩) = (a.get ⟨2*j, by omega⟩) * (a.get ⟨2*j+1, by omega⟩)
 
@@ -71,7 +72,7 @@ lemma foldl_combine (α : Type*) [Monoid α] (n l mid r : ℕ) (a : Vector α n)
 lemma leaf_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n) (h0j : 0 < j) (hj2m: j < 2*st.m) :
   let l := Nat.log2 j
   let k := j - 2^l
-  let H := st.h_n_pow2.choose
+  let H := st.H
   let h := H - l
   let L := 2^h * k
   let R := L + 2^h
@@ -79,11 +80,11 @@ lemma leaf_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
   by
   set l := Nat.log2 j with h_l
   set k := j - 2^l with h_k
-  set H := st.h_n_pow2.choose with h_H
+  set H := st.H with h_H
   set h := H - l with h_h
   set L := 2^h * k with h_L
   set R := L + 2^h with h_R
-  have H_spec := st.h_n_pow2.choose_spec
+  have H_spec := st.h_m_pow2H
   simp only []
 
   intro hjm
@@ -105,13 +106,13 @@ lemma leaf_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     subst l
     rw [Nat.le_antisymm_iff]
     constructor
-    · rw [H_spec]
-      exact Nat.pow_le_pow_right (n:=2) (by omega) (i:=st.h_n_pow2.choose) (j:=j.log2) exp0
+    · rw [H_spec, ← h_H]
+      exact Nat.pow_le_pow_right (n:=2) (by omega) (i:=H) (j:=j.log2) exp0
     · rw [H_spec]
       rw [Nat.pow_le_pow_iff_right (by omega)]
       rw [Nat.le_iff_lt_add_one]
       rw [Nat.log2_lt]
-      rw [Nat.pow_add_one 2 st.h_n_pow2.choose]
+      rw [Nat.pow_add_one 2 H]
       rw [← H_spec]
       rw [Nat.mul_comm st.m 2]
       assumption
@@ -132,7 +133,7 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
       let l := Nat.log2 j
       let k := j - 2^l
-      let H := st.h_n_pow2.choose
+      let H := st.H
       let h := H - l
       let L := 2^h * k
       let R := L + 2^h
@@ -140,11 +141,11 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
     := by
   set l := Nat.log2 j with h_l
   set k := j - 2^l with h_k
-  set H := st.h_n_pow2.choose with h_H
+  set H := st.H with h_H
   set h := H - l with h_h
   set L := 2^h * k with h_L
   set R := L + 2^h with h_R
-  have H_spec := st.h_n_pow2.choose_spec
+  have H_spec := st.h_m_pow2H
   simp only []
 
   by_cases hjm : st.m ≤ j
@@ -180,7 +181,7 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
     set aC := st.m + 2^(h-1)*(2*k+1) with h_aC  -- = (aL + aR)/2
     set aR := st.m + R with h_aR
 
-    rw [show (st.m + 2 ^ (st.h_n_pow2.choose - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2)) = aL by {
+    rw [show (st.m + 2 ^ (st.H - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2)) = aL by {
       rw [h_aL]
       subst L
       subst k
@@ -191,13 +192,13 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_comm 2 j]
       rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
       rw [Nat.log_mul_base (by omega) (by omega)]
-      rw [Nat.sub_add_eq st.h_n_pow2.choose (Nat.log 2 j) 1]
+      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
       nth_rw 3 [← Nat.pow_pred_mul (by rw [← Nat.log2_eq_log_two]; omega)]
-      rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j)]
+      rw [Nat.mul_assoc (2 ^ (st.H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j)]
       rw [Nat.mul_right_inj (by simp)]
       omega
     }]
-    rw [show (st.m + (2 ^ (st.h_n_pow2.choose - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2) + 2 ^ (st.h_n_pow2.choose - (2 * j).log2))) = aC by {
+    rw [show (st.m + (2 ^ (st.H - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2) + 2 ^ (st.H - (2 * j).log2))) = aC by {
       rw [h_aC]
       subst L
       subst k
@@ -208,7 +209,7 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_comm 2 j]
       rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
       rw [Nat.log_mul_base (by omega) (by omega)]
-      rw [Nat.sub_add_eq st.h_n_pow2.choose (Nat.log 2 j) 1]
+      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
       rw [← Nat.mul_add_one]
       rw [Nat.mul_right_inj (by simp)]
       omega
@@ -226,7 +227,7 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
       rw [Nat.succ_div_of_not_dvd (by omega)]
       simp
-      rw [Nat.sub_add_eq st.h_n_pow2.choose (Nat.log 2 j) 1]
+      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
       rw [Nat.mul_right_inj (by simp)]
       rw [Nat.pow_add_one 2 (Nat.log 2 j)]
       rw [Nat.mul_sub 2 j (2 ^ Nat.log 2 j)]
@@ -249,8 +250,8 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       simp
       rw [←mul_add_one, ←mul_add_one]
       nth_rw 3 [← Nat.pow_pred_mul (by rw [← Nat.log2_eq_log_two]; omega)]
-      rw [Nat.sub_add_eq st.h_n_pow2.choose (Nat.log 2 j) 1]
-      rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j + 1)]
+      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
+      rw [Nat.mul_assoc (2 ^ (st.H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j + 1)]
       rw [Nat.mul_right_inj (by simp)]
       rw [Nat.pow_add_one 2 (Nat.log 2 j)]
       rw [Nat.mul_add_one 2 (j - 2 ^ Nat.log 2 j)]
@@ -270,7 +271,7 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       subst H
       simp
       nth_rw 1 [← Nat.pow_pred_mul (by omega)]
-      rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - j.log2 - 1)) 2 (j - 2 ^ j.log2)]
+      rw [Nat.mul_assoc (2 ^ (st.H - j.log2 - 1)) 2 (j - 2 ^ j.log2)]
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
     · -- aC <= aR
@@ -282,9 +283,9 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       subst h
       subst H
       simp
-      rw [← Nat.mul_add_one (2 ^ (st.h_n_pow2.choose - j.log2)) (j - 2 ^ j.log2)]
+      rw [← Nat.mul_add_one (2 ^ (st.H - j.log2)) (j - 2 ^ j.log2)]
       nth_rw 3 [← Nat.pow_pred_mul (by omega)]
-      rw [Nat.mul_assoc (2 ^ (st.h_n_pow2.choose - j.log2 - 1)) 2 (j - 2 ^ j.log2 + 1)]
+      rw [Nat.mul_assoc (2 ^ (st.H - j.log2 - 1)) 2 (j - 2 ^ j.log2 + 1)]
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
@@ -347,13 +348,18 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
         }
       ⟩
 
+--def log2_upper_bound (n : ℕ) : ℕ :=
+--  if n ≤ 1 then 1
+--  else 1 + log2_upper_bound (n/2)
 
-def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃ k, n = 2^k)
+
+def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (H : ℕ) (h_n_pow2 : n = 2^H)
     (xs : Vector α n) : SegmentTree α n :=
   let b := (build_helper n 0 xs)
   ⟨
     n,
     n,
+    H,
     b.a.reverse,
     h_n,
     h_n_pow2,
@@ -367,12 +373,12 @@ def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (h_n_pow2 : ∃
     }
   ⟩
 
-noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
+def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
   where query_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
     let l := Nat.log2 j
     let k := j - 2^l
-    let H := st.h_n_pow2.choose
+    let H := st.H
     let h := H - l
     let L := 2^h * k
     let R := L + 2^h
@@ -391,7 +397,7 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
         apply leaf_interval n j st h_j0 h_j at h_leaf
         have h_l : l = Nat.log2 j := by rfl
         have h_k : k = j - 2^l := by rfl
-        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_H : H = st.H := by rfl
         have h_h : h = H - l := by rfl
         have h_L : L = 2^h * k := by rfl
         have h_R : R = L + 2^h := by rfl
@@ -413,7 +419,7 @@ noncomputable def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTr
 lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let l := Nat.log2 j
   let k := j - 2^l
-  let H := st.h_n_pow2.choose
+  let H := st.H
   let h := H - l
   let L := 2^h * k
   let R := L + 2^h
@@ -423,11 +429,11 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
   unfold query.query_aux
   set l := Nat.log2 j with h_l
   set k := j - 2^l with h_k
-  set H := st.h_n_pow2.choose with h_H
+  set H := st.H with h_H
   set h := H - l with h_h
   set L := 2^h * k with h_L
   set R := L + 2^h with h_R
-  have H_spec := st.h_n_pow2.choose_spec
+  have H_spec := st.h_m_pow2H
   have H_spec2: H = st.m.log2 := by
     rw[H_spec]
     rw [Nat.log2_two_pow]
@@ -491,7 +497,7 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q : ℕ) (st :
         apply leaf_interval n j st h_j0 h_j at h_leaf
         have h_l : l = Nat.log2 j := by rfl
         have h_k : k = j - 2^l := by rfl
-        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_H : H = st.H := by rfl
         have h_h : h = H - l := by rfl
         have h_L : L = 2^h * k := by rfl
         have h_R : R = L + 2^h := by rfl
@@ -651,12 +657,12 @@ theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : Segment
   rw [query_aux_correctness α inst n 1 p q st (by omega) h1]
   rw [show 2 ^ Nat.log2 1 = 1 from rfl]
   rw [show 1 - 1 = 0 from rfl]
-  rw [Nat.mul_zero (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
+  rw [Nat.mul_zero (2 ^ (st.H - Nat.log2 1))]
   rw [Nat.zero_max p]
-  rw [Nat.zero_add (2 ^ (st.h_n_pow2.choose - Nat.log2 1))]
+  rw [Nat.zero_add (2 ^ (st.H - Nat.log2 1))]
   rw [show Nat.log2 1 = 0 from rfl]
-  rw [Nat.sub_zero st.h_n_pow2.choose]
-  have htmp := st.h_n_pow2.choose_spec
+  rw [Nat.sub_zero st.H]
+  have htmp := st.h_m_pow2H
   rw[← htmp]
   suffices h_arr_estr : (st.a.toArray.extract (st.m + p) (st.m + min st.m q)) = (st.a.toArray.extract (st.m + p) (st.m + q)) by
     rw[h_arr_estr]
@@ -685,7 +691,7 @@ structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   proof (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m) :
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
-noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
   let b := update_aux 1 (by omega) (by have := st.h_m; omega) ⟨st.a, by {
     intro i _ _ h_i_ub
     exact st.h_children i (by omega) h_i_ub
@@ -693,9 +699,10 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
   ⟨
     st.n,
     st.m,
+    st.H,
     b.a,
     st.h_m,
-    st.h_n_pow2,
+    st.h_m_pow2H,
     by {
       intro j h_j hjm
       exact b.proof j (by omega) (by {
@@ -710,7 +717,7 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
   where update_aux (j : ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) (b : UpdateHelperStruct α st.m j) : UpdateHelperStruct α st.m j :=
     let l := Nat.log2 j
     let k := j - 2^l
-    let H := st.h_n_pow2.choose
+    let H := st.H
     let h := H - l
     let L := 2^h * k
     let R := L + 2^h
@@ -730,7 +737,7 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
         have h_pR : 2^H ≤ 2^l := by refine Nat.pow_le_pow_right (by omega) h_pR
         subst l
         subst H
-        rw [← st.h_n_pow2.choose_spec] at h_pR
+        rw [← st.h_m_pow2H] at h_pR
         rw [Nat.log2_eq_log_two] at h_pR
         simp
         trans 2 ^ Nat.log 2 j
@@ -760,7 +767,7 @@ noncomputable def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentT
         apply leaf_interval n j st h_j0 h_j at h_leaf
         have h_l : l = Nat.log2 j := by rfl
         have h_k : k = j - 2^l := by rfl
-        have h_H : H = st.h_n_pow2.choose := by rfl
+        have h_H : H = st.H := by rfl
         have h_h : h = H - l := by rfl
         have h_L : L = 2^h * k := by rfl
         have h_R : R = L + 2^h := by rfl
@@ -854,7 +861,7 @@ variable (xs : Vector ℕ 8 :=
   ⟨#[5, 8, 6, 3, 2, 7, 2, 6],
     by decide⟩)
 
-def albero := build ℕ NatWithSum 8 (by omega) (by use 3; omega) xs
+def albero := build ℕ NatWithSum 8 (by omega) 3 (by omega) xs
 
 #check albero
 #eval albero.a
