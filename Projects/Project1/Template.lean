@@ -7,7 +7,7 @@ set_option autoImplicit false
 
 structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   n := n
-  m := n -- temporary
+  m : ℕ
   H : ℕ
   -- TODO maybe store original vector
   a : Vector α (2*m)
@@ -352,17 +352,38 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m) -
 --  if n ≤ 1 then 1
 --  else 1 + log2_upper_bound (n/2)
 
+structure mHstruct (n : ℕ) where
+  m : ℕ
+  H : ℕ
+  proofmH : m = 2^H
+  proofmn : n ≤ m
 
-def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (H : ℕ) (h_n_pow2 : n = 2^H)
-    (xs : Vector α n) : SegmentTree α n :=
-  let b := (build_helper n 0 xs)
+def compute_m_H (n : ℕ) : mHstruct n :=
+  if hn1: n ≤ 1 then ⟨1, 0, by omega, by omega⟩
+  else
+    let ⟨m1, H1, proof1H, proof1n⟩ := compute_m_H ((n+1)/2)
+    have proof2H : m1*2 = 2^(H1+1) := by
+      rw [Nat.pow_add_one 2 H1]
+      omega
+    have proof2n : n ≤ m1*2 := by
+      rw [Nat.div_le_iff_le_mul_add_pred (by omega)] at proof1n
+      ring_nf at proof1n
+      simp at proof1n
+      assumption
+    ⟨m1*2, H1+1, proof2H, proof2n⟩
+
+
+def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) : SegmentTree α n :=
+  let ⟨m, H, proofmH, proofmn⟩ := compute_m_H n
+  have h_m : m > 0 := by omega
+  let b := (build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega)))
   ⟨
     n,
-    n,
+    m,
     H,
     b.a.reverse,
-    h_n,
-    h_n_pow2,
+    h_m,
+    proofmH,
     by {
       -- we have the proof in b.proof already, so it's "true by construction"
       intro j h0j hjm
@@ -855,17 +876,26 @@ instance NatWithSum : Monoid Nat where
   one_mul := Nat.zero_add
   mul_assoc := Nat.add_assoc
 
-variable (xs : Vector ℕ 8 :=
-  ⟨#[5, 8, 6, 3, 2, 7, 2, 6],
+def n : ℕ := 9
+
+variable (xs : Vector ℕ n :=
+  ⟨#[5, 8, 6, 3, 2, 7, 2, 6, 0],
     by decide⟩)
 
-def albero := build ℕ NatWithSum 8 (by omega) 3 (by omega) xs
+
+def mH  := compute_m_H n
+def m := mH.1
+def H := mH.2
+#eval m
+#eval H
+
+def albero := build ℕ NatWithSum n (by decide) xs
 
 #check albero
 #eval albero.a
-#eval query ℕ NatWithSum 8 albero 2 8
+#eval query ℕ NatWithSum 9 albero 2 8
 
-def albero1 := update ℕ NatWithSum 8 albero 5 3
+def albero1 := update ℕ NatWithSum 9 albero 5 3
 #check albero1
 #eval albero1.a
 
