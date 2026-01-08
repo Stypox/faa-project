@@ -172,12 +172,45 @@ theorem compute_m_H_time (n : ℕ) : (compute_m_H n).time ≤ Nat.log 2 (n-1) + 
     simp [compute_m_H_time_base n (by omega)]
   }
 
+theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
+  : (build_helper m j xs).time ≤ 2*m-j+1
+:= by
+  unfold build_helper
+  split_ifs with h2m h0 h_jm <;> simp
+  · have h_rec := build_helper_time m (j+1) xs
+    simp_all
+    rw [Nat.sub_one_add_one (by omega)] at h_rec
+    assumption
+  · have h_rec := build_helper_time m (j+1) xs
+    simp_all
+    rw [tsub_add_eq_tsub_tsub (2 * m) j 1] at h_rec
+    rw [Nat.sub_one_add_one (by omega)] at h_rec
+    assumption
+  · have h_rec := build_helper_time m (j+1) xs
+    simp_all
+    rw [tsub_add_eq_tsub_tsub (2 * m) j 1] at h_rec
+    rw [Nat.sub_one_add_one (by omega)] at h_rec
+    assumption
 
--- theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) :
---   (build α inst n h_n xs).time ≤ n*8
--- := by
---   unfold build
---   simp
+theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) :
+  (build α inst n h_n xs).time ≤ 3 + 9*n
+:= by
+  unfold build
+  simp
+  have h_compute_m_H_time := compute_m_H_time n
+  have h_build_helper_time := fun (xs : Vector α (compute_m_H n).ret.m) ↦ (build_helper_time ((compute_m_H n).ret.m) 0 xs)
+  have h_m : 2 * (compute_m_H n).ret.m ≤ 4 * n := by {
+    cases ((compute_m_H n).ret.proofnm) <;> omega
+  }
+  grw [h_compute_m_H_time, h_build_helper_time, h_m]
+  ring_nf
+  simp
+  ring_nf
+  rw [Nat.Simproc.add_le_le (3 + Nat.log 2 (n - 1)) (by omega)]
+  rw [Nat.add_sub_assoc (by omega) 3]
+  rw [← Nat.mul_sub n 9 8]
+  simp
+  exact log_sublinear n
 
 
 def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=

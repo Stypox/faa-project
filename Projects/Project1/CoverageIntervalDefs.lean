@@ -264,3 +264,12 @@ lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
   rw [Nat.succ_div_of_not_dvd (by omega)]
   rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
   rw [← Nat.log2_eq_log_two]
+
+lemma log_sublinear (n : ℕ) : Nat.log 2 (n - 1) ≤ n := by
+  if hn : n > 1 then {
+    have a := Nat.log_lt_self 2 (x:=(n - 1)) (by omega)
+    grw [a]
+    simp
+  } else {
+    simp_all
+  }
