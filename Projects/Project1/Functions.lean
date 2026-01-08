@@ -552,6 +552,12 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
     rw [show 2 ^ 0 = 1 from rfl]
     grind
 
+theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+  (query α inst n st p q).time ≤ 10 * Nat.log 2 n
+:= by
+  sorry
+
+
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m)
   proof (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m) :
