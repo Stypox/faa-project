@@ -15,7 +15,7 @@ structure BuildHelperStruct (α : Type) [Monoid α] (m j : ℕ) where
 def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)   -- builds the vector that stores the nodes of the tree, but in reverse order
     : TimeM (BuildHelperStruct α m j) := do
   if h2m : j ≥ 2*m then               -- base case: we start with an empty vector
-    return ⟨⟨#[], (by simp_all)⟩, by grind⟩
+    ✓ ⟨⟨#[], (by simp_all)⟩, by grind⟩ -- we create an empty array, which is O(1)
 
   else                                -- recursive case
     let ⟨a, proof⟩ ← build_helper m (j+1) xs
@@ -72,12 +72,13 @@ structure mHstruct (n : ℕ) where
   H : ℕ
   proofmH : m = 2^H
   proofmn : n ≤ m
+  proofnm : m = 1 ∨ m < n*2-1
 
 def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
   if hn1: n ≤ 1 then
-    return ⟨1, 0, by omega, by omega⟩
+    ✓ ⟨1, 0, by omega, by omega, by omega⟩
   else
-    let ⟨m1, H1, proof1H, proof1n⟩ ← compute_m_H ((n+1)/2)
+    let ⟨m1, H1, proof1H, proof1n, proof1nm⟩ ← compute_m_H ((n+1)/2)
     have proof2H : m1*2 = 2^(H1+1) := by
       rw [Nat.pow_add_one 2 H1]
       omega
@@ -86,11 +87,20 @@ def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
       ring_nf at proof1n
       simp at proof1n
       assumption
-    ✓ ⟨m1*2, H1+1, proof2H, proof2n⟩ -- just O(1) operations
+    have proof2nm : m1*2 = 1 ∨ m1*2 < n*2-1 := by
+      right
+      cases proof1nm with
+      | inl proof1nm => omega
+      | inr proof1nm =>
+        suffices m1 + 1 ≤ (n + 1) / 2 * 2 - 1 by omega
+        rw [Nat.lt_iff_add_one_le] at proof1nm
+        apply proof1nm
+
+    ✓ ⟨m1*2, H1+1, proof2H, proof2n, proof2nm⟩ -- just O(1) operations
 
 
 def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) : TimeM (SegmentTree α n) := do
-  let ⟨m, H, proofmH, proofmn⟩ ← compute_m_H n
+  let ⟨m, H, proofmH, proofmn, proofnm⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
   let ⟨a, proof⟩ ← build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega))
   ✓ ⟨
@@ -100,8 +110,8 @@ def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α 
     a.reverse,
     h_m,
     proofmH,
-    by {  -- we have the proof of the segment tree property "h_children" in b.proof already,
-          -- therefore the "build" function is "correct by construction"
+    by {  -- we have the proof of the segment tree property "h_children" in build_helper.proof
+          --  already, therefore the "build" function is "correct by construction"
       intro j h0j hjm
       simp [Vector.get]
       have proof := proof j (by omega) h0j hjm
@@ -109,6 +119,66 @@ def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α 
       exact proof
     }
   ⟩, (2*m)
+
+
+lemma compute_m_H_time_base (n : ℕ) (hn : n ≤ 1) : (compute_m_H n).time = 1 := by
+  unfold compute_m_H
+  simp_all
+
+lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.log 2 (n-1) + 2 := by
+  unfold compute_m_H
+  split_ifs with hn1 <;> try grind
+  simp
+  if hn3 : n ≥ 3 then {
+    have h_rec := compute_m_H_time_rec ((n + 1) / 2)
+    rw [h_rec (by omega)]
+    simp
+    rw [← Nat.log_mul_base (by omega) (by omega)]
+    if h_n_even : Even n then {
+      rw [Nat.succ_div_of_not_dvd (by grind)]
+      rw [Nat.sub_one_mul (n / 2) 2]
+      rw [Nat.div_two_mul_two_of_even (by assumption)]
+      have ⟨r, hnr⟩ := h_n_even
+      rw [hnr, ← Nat.two_mul r]
+      rw [← Nat.mul_sub_one 2 r]
+      rw [show 2 * r - 1 = 2 * (r - 1) + 1 from by omega]
+      rw [← Nat.log2_eq_log_two, ← Nat.log2_eq_log_two]
+      symm
+      apply odd_log2
+      omega
+    } else {
+      rw [Nat.succ_div_of_dvd (by grind)]
+      simp
+      set n' := n-1 with hn'
+      have h_n'_even : Even n' := by grind
+      rw [← Nat.Simproc.add_eq_le n' (by omega)] at hn'
+      rw [← hn']
+      have ⟨r', hn'r'⟩ := h_n'_even
+      rw [hn'r', ← Nat.two_mul r']
+      rw [← Nat.log2_eq_log_two, ← Nat.log2_eq_log_two]
+      apply odd_log2
+      omega
+    }
+  } else {
+    have hn2 : n = 2 := by omega
+    rw [hn2]
+    simp_all [compute_m_H]
+  }
+
+theorem compute_m_H_time (n : ℕ) : (compute_m_H n).time ≤ Nat.log 2 (n-1) + 2 := by
+  if hn : n > 1 then {
+    simp [compute_m_H_time_rec n hn]
+  } else {
+    simp [compute_m_H_time_base n (by omega)]
+  }
+
+
+-- theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) :
+--   (build α inst n h_n xs).time ≤ n*8
+-- := by
+--   unfold build
+--   simp
+
 
 def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
@@ -587,8 +657,10 @@ variable (xs : Vector ℕ n :=
 
 
 def mH  := compute_m_H n
-def m := mH.1
-def H := mH.2
+def m := mH.1.1
+def H := mH.1.2
+#eval #[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33].map (fun n ↦ (compute_m_H n).time == Nat.log 2 (n-1) + 2)
+#eval #[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33].map (fun n ↦ Nat.log 2 (n-1))
 #eval m
 #eval H
 
