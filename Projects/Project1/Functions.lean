@@ -231,35 +231,36 @@ def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (
       (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
 
-def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
+def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : TimeM α :=
   query_aux 1 0 st.m (by omega)
-  where query_aux (j L R: ℕ) (h_j0 : j > 0) : α :=
+  where query_aux (j L R: ℕ) (h_j0 : j > 0) : TimeM α := do
     if h_j : j < 2*st.m then
       if h_sub : p ≤ L ∧ R ≤ q then   -- the coverage interval is a subinterval of the query interval
-        st.a.get ⟨j, h_j⟩
+        ✓ (st.a.get ⟨j, h_j⟩)
       else if h_disjoint : q ≤ L ∨ R ≤ p then   -- the two intervals are disjoint
-        inst.one
+        ✓ inst.one
       else -- if we got to this case, (j is not a leaf and) the two intervals have a proper, non-empty intersection
         let C := (L+R)/2
-        (query_aux (2*j) L C (by omega)) * (query_aux (2*j + 1) C R (by omega))
-    else inst.one
+        ✓ ((query_aux (2*j) L C (by omega)).ret * (query_aux (2*j + 1) C R (by omega)).ret)
+    else ✓ inst.one
 
 
 #check Array.extract_eq_empty_of_le
 
-lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q x y : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
+lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   d.L = x ∧ d.R = y →
-    query.query_aux α inst n st p q j x y h_j0 = (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1
+    (query.query_aux α inst n st p q j x y h_j0).ret = (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1
   := by
 
   unfold query.query_aux
+
   set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
   have H_spec := st.h_m_pow2H
   have H_spec2: st.H = st.m.log2 := by
     rw[H_spec]
     rw [Nat.log2_two_pow]
-  simp only []
+  simp only [TimeM.tick] -- get rid of time measurement
 
   intro h_xy
   rw [← h_xy.left, ← h_xy.right]
@@ -501,9 +502,9 @@ lemma query_aux_correctness (α : Type*) (inst: Monoid α) (n j p q x y : ℕ) (
 #check Nat.lt_pow_succ_log_self
 #check Array.foldl_empty
 
-theorem query_correctness (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
-  query α inst n st p q =  (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
-  := by
+theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+  (query α inst n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
+:= by
   unfold query
   have h1 : 1 < 2*st.m := by
     have htmp := st.h_m
