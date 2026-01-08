@@ -78,38 +78,39 @@ def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
   if hn1: n ≤ 1 then
     ✓ ⟨1, 0, by omega, by omega, by omega⟩
   else
-    let ⟨m1, H1, proof1H, proof1n, proof1nm⟩ ← compute_m_H ((n+1)/2)
-    have proof2H : m1*2 = 2^(H1+1) := by
+    let ⟨m1, H1, proof1_m_pow2H, proof1_mn, proof1_m2n⟩ ← compute_m_H ((n+1)/2)
+    have proof2_m_pow2H : m1*2 = 2^(H1+1) := by
       rw [Nat.pow_add_one 2 H1]
       omega
-    have proof2n : n ≤ m1*2 := by
-      rw [Nat.div_le_iff_le_mul_add_pred (by omega)] at proof1n
-      ring_nf at proof1n
-      simp at proof1n
+    have proof2_mn : n ≤ m1*2 := by
+      rw [Nat.div_le_iff_le_mul_add_pred (by omega)] at proof1_mn
+      ring_nf at proof1_mn
+      simp at proof1_mn
       assumption
-    have proof2nm : m1*2 = 1 ∨ m1*2 < n*2-1 := by
+    have proof2_m2n : m1*2 = 1 ∨ m1*2 < n*2-1 := by
       right
-      cases proof1nm with
-      | inl proof1nm => omega
-      | inr proof1nm =>
+      cases proof1_m2n with
+      | inl proof1_m2n => omega
+      | inr proof1_m2n =>
         suffices m1 + 1 ≤ (n + 1) / 2 * 2 - 1 by omega
-        rw [Nat.lt_iff_add_one_le] at proof1nm
-        apply proof1nm
+        rw [Nat.lt_iff_add_one_le] at proof1_m2n
+        apply proof1_m2n
 
-    ✓ ⟨m1*2, H1+1, proof2H, proof2n, proof2nm⟩ -- just O(1) operations
+    ✓ ⟨m1*2, H1+1, proof2_m_pow2H, proof2_mn, proof2_m2n⟩ -- just O(1) operations
 
 
 def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) : TimeM (SegmentTree α n) := do
-  let ⟨m, H, proofmH, proofmn, proofnm⟩ ← compute_m_H n
+  let ⟨m, H, proof_m_pow2H, proof_mn, proof_m2n⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
   let ⟨a, proof⟩ ← build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega))
   ✓ ⟨
-    n,
     m,
     H,
     a.reverse,
     h_m,
-    proofmH,
+    proof_mn,
+    proof_m2n,
+    proof_m_pow2H,
     by {  -- we have the proof of the segment tree property "h_children" in build_helper.proof
           --  already, therefore the "build" function is "correct by construction"
       intro j h0j hjm
@@ -142,9 +143,8 @@ lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.l
       rw [hnr, ← Nat.two_mul r]
       rw [← Nat.mul_sub_one 2 r]
       rw [show 2 * r - 1 = 2 * (r - 1) + 1 from by omega]
-      rw [← Nat.log2_eq_log_two, ← Nat.log2_eq_log_two]
       symm
-      apply odd_log2
+      apply odd_log2'
       omega
     } else {
       rw [Nat.succ_div_of_dvd (by grind)]
@@ -155,8 +155,7 @@ lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.l
       rw [← hn']
       have ⟨r', hn'r'⟩ := h_n'_even
       rw [hn'r', ← Nat.two_mul r']
-      rw [← Nat.log2_eq_log_two, ← Nat.log2_eq_log_two]
-      apply odd_log2
+      apply odd_log2'
       omega
     }
   } else {
@@ -221,7 +220,7 @@ theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : V
 
 
 def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
-  query_aux 1 (by omega) (by have := st.h_m; omega)
+  query_aux 1 (by omega) (by have := st.h_m0; omega)
   where query_aux (j: ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
     let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
     -- si potrebbe fare un primo if che controlla se l'intervallo [p, q) e' vuoto
@@ -241,14 +240,16 @@ def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (
 def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : TimeM α :=
   query_aux 1 0 st.m (by omega)
   where query_aux (j L R: ℕ) (h_j0 : j > 0) : TimeM α := do
-    if h_j : j < 2*st.m then
+    if h_j2m : j < 2*st.m then
       if h_sub : p ≤ L ∧ R ≤ q then   -- the coverage interval is a subinterval of the query interval
-        ✓ (st.a.get ⟨j, h_j⟩)
+        ✓ (st.a.get ⟨j, h_j2m⟩)
       else if h_disjoint : q ≤ L ∨ R ≤ p then   -- the two intervals are disjoint
         ✓ inst.one
       else -- if we got to this case, (j is not a leaf and) the two intervals have a proper, non-empty intersection
         let C := (L+R)/2
-        ✓ ((query_aux (2*j) L C (by omega)).ret * (query_aux (2*j + 1) C R (by omega)).ret)
+        let left ← query_aux (2*j) L C (by omega)
+        let right ← query_aux (2*j + 1) C R (by omega)
+        ✓ (left * right)
     else ✓ inst.one
 
 
@@ -343,6 +344,9 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
       ∧ (dRight.L = C ∧ dRight.R = d.R)
       by
 
+      -- conv_lhs simplifies only the left side of the = to remove the time information
+      -- (simplifying the right too breaks the proof that we made before adding the time information)
+      conv_lhs => simp
       rw [query_aux_correctness α inst n (2*j) p q d.L C st (by omega) (by omega)]
       rw [query_aux_correctness α inst n (2*j+1) p q C d.R st (by omega) (by omega)]
       · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
@@ -514,14 +518,14 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
 := by
   unfold query
   have h1 : 1 < 2*st.m := by
-    have htmp := st.h_m
-    rw [show (st.m > 0) = (0 < st.m) from rfl] at htmp
-    rw [Nat.lt_iff_add_one_le] at htmp
+    have h_m0 := st.h_m0
+    rw [show (st.m > 0) = (0 < st.m) from rfl] at h_m0
+    rw [Nat.lt_iff_add_one_le] at h_m0
     simp_all
     calc
       1 < 2 := by trivial
       _ = 2*1 := by trivial
-      _ ≤ 2*st.m := by grw[htmp]
+      _ ≤ 2*st.m := by grw [h_m0]
   rw [query_aux_correctness α inst n 1 p q 0 st.m st (by omega) h1]
   · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
     rw [show 2 ^ Nat.log2 1 = 1 from rfl]
@@ -559,10 +563,137 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
     rw [show 2 ^ 0 = 1 from rfl]
     grind
 
-theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
-  (query α inst n st p q).time ≤ 10 * Nat.log 2 n
+-- trivial cases for query_aux: the time taken is 1
+theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
+  (h_out_sub_disjoint : ¬(j < 2*st.m) ∨ (p ≤ L ∧ R ≤ q) ∨ (q ≤ L ∨ R ≤ p)) :
+  (query.query_aux α inst n st p q j L R h_j0).time = 1
 := by
-  sorry
+  unfold query.query_aux
+  split_ifs with h_j h_sub h_disjoint <;> simp
+  grind
+
+-- when the interval [p, q) overlaps with [L, R) without being fully contained,
+-- i.e. p or q are outside the range [L, R), the query_aux recursion continues non-trivially only
+-- either left or right and with smaller [L, R) s.t. [p, q) still overlaps with [L, R) the same way,
+-- so we can do the proof recursively as well
+theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
+  (h_semiinterval : p ≤ L ∨ q ≥ R) :
+  (query.query_aux α inst n st p q j L R h_j0).time ≤ 2 * (2 + st.H - Nat.log 2 j) + 1
+:= by
+  unfold query.query_aux
+  split_ifs with h_j2m h_sub h_disjoint <;> simp
+  set C := ((L + R) / 2) with h_C
+  have h_H_geq_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
+
+  cases h_semiinterval with
+  | inl h_pL => if h_Cq : q < C then {
+      have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
+      have h_right := query_aux_time_out_sub_disjoint α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+      grw [h_left, h_right]
+      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+      simp
+      omega
+    } else {
+      have h_left := query_aux_time_out_sub_disjoint α inst n st p q (2 * j) L C (by omega) (by omega)
+      have h_right := query_aux_time_semiinterval α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+      grw [h_left, Nat.add_left_comm, Nat.add_comm, h_right]
+      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+      simp
+      rw [Nat.mul_sub 2, Nat.mul_sub 2]
+      rw [odd_log2' j (by omega)]
+      rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+      simp
+      omega
+    }
+  | inr h_qR => if h_Cp : p < C then {
+      have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
+      have h_right := query_aux_time_out_sub_disjoint α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+      grw [h_left, h_right]
+      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+      simp
+      omega
+    } else {
+      have h_left := query_aux_time_out_sub_disjoint α inst n st p q (2 * j) L C (by omega) (by omega)
+      have h_right := query_aux_time_semiinterval α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+      grw [h_left,  Nat.add_left_comm, Nat.add_comm, h_right]
+      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+      simp
+      rw [Nat.mul_sub 2, Nat.mul_sub 2]
+      rw [odd_log2' j (by omega)]
+      rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+      simp
+      omega
+    }
+termination_by R - L
+
+-- for the general proof, we distinguish three cases based on the position of C with respect to p and q,
+-- and notice that in when C is outside [p, q) one of the recursive query_aux calls trivially terminates,
+-- while when C is in [p, q) the recursive query_aux calls are of the form supported by
+-- `query_aux_time_semiinterval`
+theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0) :
+  (query.query_aux α inst n st p q j L R h_j0).time ≤ 4 * (2 + st.H - Nat.log 2 j) + 1
+:= by
+  unfold query.query_aux
+  split_ifs with h_j2m h_sub h_disjoint <;> simp
+  set C := ((L + R) / 2) with h_C
+  have h_H_geq_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
+
+  if h_qC : q < C then {
+    have h_left := query_aux_time α inst n st p q (2 * j) L C (by omega)
+    have h_right := query_aux_time_out_sub_disjoint α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+    grw [h_left, h_right]
+    rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+    omega
+  } else if h_pC : p > C then {
+    have h_left := query_aux_time_out_sub_disjoint α inst n st p q (2 * j) L C (by omega) (by omega)
+    have h_right := query_aux_time α inst n st p q (2 * j + 1) C R (by omega)
+    grw [h_left, Nat.add_left_comm, Nat.add_comm, h_right]
+    rw [odd_log2' j (by omega)]
+    rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+    omega
+  } else {
+    have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
+    have h_right := query_aux_time_semiinterval α inst n st p q (2 * j + 1) C R (by omega) (by omega)
+    grw [h_left, Nat.add_left_comm, h_right]
+    rw [odd_log2' j (by omega)]
+    rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+    ring_nf
+    omega
+  }
+
+-- completes the proof by lifting the general proof about query_aux into the specific
+-- case where j=1, L=0, R=m,
+-- and then proves the time complexity in terms of n based on the time complexity in terms of m
+theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+  (query α inst n st p q).time ≤ 4 * (Nat.log 2 n + 2) + 9
+:= by
+  unfold query
+  have h_aux := query_aux_time α inst n st p q 1 0 st.m (by omega)
+  grw [h_aux]
+  simp
+  rw [Nat.add_comm, Nat.mul_add]
+  simp
+  apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
+  rw [← st.h_m_pow2H]
+  cases st.h_m2n with
+  | inl h_m2n =>
+    rw [h_m2n]
+    exact Nat.one_le_pow ?_ 2 (by omega)
+  | inr h_m2n =>
+    grw [h_m2n]
+    have h_pow_log_n : 2 ^ (Nat.log 2 n + 1) > n := by
+      if h_n0 : n ≠ 0 then {
+        simp
+        rw [← Nat.log_lt_iff_lt_pow (by omega) (by omega)]
+        simp
+      } else {
+        simp_all
+      }
+    nth_rw 4 [show 2 = 1 + 1 from rfl]
+    rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
+    rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
+    grw [h_pow_log_n]
+    omega
 
 
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
@@ -571,16 +702,17 @@ structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
 def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
-  let b := update_aux 1 (by omega) (by have := st.h_m; omega) ⟨st.a, by {
+  let b := update_aux 1 (by omega) (by have := st.h_m0; omega) ⟨st.a, by {
     intro i _ _ h_i_ub
     exact st.h_children i (by omega) h_i_ub
   }⟩
   ⟨
-    st.n,
     st.m,
     st.H,
     b.a,
-    st.h_m,
+    st.h_m0,
+    st.h_mn,
+    st.h_m2n,
     st.h_m_pow2H,
     by {
       intro j h_j hjm

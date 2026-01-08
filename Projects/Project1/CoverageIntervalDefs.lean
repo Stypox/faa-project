@@ -255,15 +255,25 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
 
+lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTree α n)
+  (j : ℕ) (h_j0 : j > 0) (h_j2m : j < 2 * st.m) :
+  st.H + 1 ≥ Nat.log 2 j
+:= by
+  apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
+  rw [Nat.pow_add_one 2 st.H]
+  rw [← st.h_m_pow2H]
+  grw [Nat.pow_log_le_self 2 (x:=j) (by omega)]
+  omega
 
 
-
-lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
-  rw [Nat.log2_eq_log_two]
+lemma odd_log2' (i : ℕ) (h_pos: 1 ≤ i) : Nat.log 2 (2*i + 1) = Nat.log 2 (2*i) := by
   rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
   rw [Nat.succ_div_of_not_dvd (by omega)]
   rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
-  rw [← Nat.log2_eq_log_two]
+
+lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
+  rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
+  exact odd_log2' i h_pos
 
 lemma log_sublinear (n : ℕ) : Nat.log 2 (n - 1) ≤ n := by
   if hn : n > 1 then {
