@@ -7,21 +7,21 @@ import Projects.Project1.FoldlHelpers
 set_option autoImplicit false
 
 
-structure BuildHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
+structure BuildHelperStruct (α : Type) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m - j)
   proof (i : ℕ) (h_i_lb : i ≥ j) (h_i0 : i > 0) (h_i_ub : i < m) :
     a.get ⟨2*m-1 - i, by omega⟩ = a.get ⟨2*m-1 - 2*i, by omega⟩ * a.get ⟨2*m-1 - (2*i+1), by omega⟩
 
-def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
-    : BuildHelperStruct α m j :=
+def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
+    : TimeM (BuildHelperStruct α m j) := do
   if h2m : j ≥ 2*m then
-    ⟨⟨#[], (by simp_all)⟩, by grind⟩
+    return ⟨⟨#[], (by simp_all)⟩, by grind⟩
 
   else
-    let ⟨a, proof⟩ := build_helper m (j+1) xs
+    let ⟨a, proof⟩ ← build_helper m (j+1) xs
 
     if h0: j = 0 then
-      ⟨
+      ✓ ⟨ -- we are doing a single push operation on the array, which is O(1)
         (a.push inst.one).cast (by rw [Nat.sub_add_eq (2 * m) j 1, Nat.sub_one_add_one (by omega)]),
         by {
           intros i h_i_lb h_i0 h_i_ub
@@ -34,7 +34,7 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
         }
       ⟩
     else if h_jm : j ≥ m then
-      ⟨
+      ✓ ⟨ -- we are doing a single push operation on the array, which is O(1)
         (a.push xs[j-m]).cast (by omega), -- ...
         by omega -- trivial by default, the quantifiers are all empty
       ⟩
@@ -45,7 +45,7 @@ def build_helper {α : Type*} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
         rw [Nat.Simproc.add_le_le j (by omega)] at h_jm
         grw [h_jm]
         omega
-      ⟨
+      ✓ ⟨ -- we are doing two array accesses, one multiplication and one push operation on the array, all O(1)
         (a.push (a[2*m-1 - 2*j]'(by {
           rw [Nat.sub_sub, tsub_lt_tsub_iff_left_of_le ?_] <;> omega
         }) * a[2*m-1 - (2*j+1)]'(by {
@@ -71,10 +71,11 @@ structure mHstruct (n : ℕ) where
   proofmH : m = 2^H
   proofmn : n ≤ m
 
-def compute_m_H (n : ℕ) : mHstruct n :=
-  if hn1: n ≤ 1 then ⟨1, 0, by omega, by omega⟩
+def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
+  if hn1: n ≤ 1 then
+    return ⟨1, 0, by omega, by omega⟩
   else
-    let ⟨m1, H1, proof1H, proof1n⟩ := compute_m_H ((n+1)/2)
+    let ⟨m1, H1, proof1H, proof1n⟩ ← compute_m_H ((n+1)/2)
     have proof2H : m1*2 = 2^(H1+1) := by
       rw [Nat.pow_add_one 2 H1]
       omega
@@ -83,29 +84,29 @@ def compute_m_H (n : ℕ) : mHstruct n :=
       ring_nf at proof1n
       simp at proof1n
       assumption
-    ⟨m1*2, H1+1, proof2H, proof2n⟩
+    ✓ ⟨m1*2, H1+1, proof2H, proof2n⟩ -- just O(1) operations
 
 
-def build (α : Type*) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) : SegmentTree α n :=
-  let ⟨m, H, proofmH, proofmn⟩ := compute_m_H n
+def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) : TimeM (SegmentTree α n) := do
+  let ⟨m, H, proofmH, proofmn⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
-  let b := (build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega)))
-  ⟨
+  let ⟨a, proof⟩ ← build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega))
+  ✓ ⟨
     n,
     m,
     H,
-    b.a.reverse,
+    a.reverse,
     h_m,
     proofmH,
     by {
       -- we have the proof in b.proof already, so it's "true by construction"
       intro j h0j hjm
       simp [Vector.get]
-      have proof := b.proof j (by omega) h0j hjm
+      have proof := proof j (by omega) h0j hjm
       simp [Vector.get] at proof
       exact proof
     }
-  ⟩
+  ⟩, (2*m)
 
 def query (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
   query_aux 1 (by omega) (by have := st.h_m; omega)
@@ -501,10 +502,10 @@ def H := mH.2
 def albero := build ℕ NatWithSum n (by decide) xs
 
 #check albero
-#eval albero.a
-#eval query ℕ NatWithSum 9 albero 2 8
+#eval albero.ret.a
+#eval query ℕ NatWithSum 9 albero.ret 2 8
 
-def albero1 := update ℕ NatWithSum 9 albero 5 3
+def albero1 := update ℕ NatWithSum 9 albero.ret 5 3
 #check albero1
 #eval albero1.a
 
