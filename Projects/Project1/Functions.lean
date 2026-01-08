@@ -118,7 +118,7 @@ def build (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α 
       simp [Vector.get] at proof
       exact proof
     }
-  ⟩, (2*m)
+  ⟩, (m-n + 2*m)      -- cost of augmenting vector a with identity element before calling build_helper, and then reversing it afterwards
 
 
 lemma compute_m_H_time_base (n : ℕ) (hn : n ≤ 1) : (compute_m_H n).time = 1 := by
@@ -193,22 +193,29 @@ theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector
     assumption
 
 theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) :
-  (build α inst n h_n xs).time ≤ 3 + 9*n
+  (build α inst n h_n xs).time ≤ 3 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x2n+1 + 2x2n)
 := by
   unfold build
   simp
   have h_compute_m_H_time := compute_m_H_time n
   have h_build_helper_time := fun (xs : Vector α (compute_m_H n).ret.m) ↦ (build_helper_time ((compute_m_H n).ret.m) 0 xs)
-  have h_m : 2 * (compute_m_H n).ret.m ≤ 4 * n := by {
+  have h_m : (compute_m_H n).ret.m ≤ 2 * n := by {
     cases ((compute_m_H n).ret.proofnm) <;> omega
   }
-  grw [h_compute_m_H_time, h_build_helper_time, h_m]
+  have h_2m : 2 * (compute_m_H n).ret.m ≤ 4 * n := by {
+    rw[show 4 = 2*2 from rfl]
+    rw [Nat.mul_assoc 2 2 n]
+    rw [Nat.mul_le_mul_left_iff (by omega)]
+    assumption
+  }
+  grw [h_compute_m_H_time, h_build_helper_time, h_2m, h_m]
+  rw [← Nat.sub_one_mul 2 n]
   ring_nf
   simp
   ring_nf
   rw [Nat.Simproc.add_le_le (3 + Nat.log 2 (n - 1)) (by omega)]
   rw [Nat.add_sub_assoc (by omega) 3]
-  rw [← Nat.mul_sub n 9 8]
+  rw [← Nat.mul_sub n 10 9]
   simp
   exact log_sublinear n
 
@@ -265,11 +272,11 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
   intro h_xy
   rw [← h_xy.left, ← h_xy.right]
 
-  split_ifs with h_sub h_disjoint <;> (
-    try rw [← h_d];
-    try rw [← h_d] at h_sub;
-    try rw [← h_d] at h_disjoint;
-  )
+  split_ifs with h_sub h_disjoint --<;> (
+  --  try rw [← h_d];
+  --  try rw [← h_d] at h_sub;
+  --  try rw [← h_d] at h_disjoint;
+  --)
   · -- case where coverage interval [L, R) is completely included in query interval [p, q)
     rw [Nat.max_eq_left h_sub.left]
     rw [Nat.min_eq_left h_sub.right]
@@ -697,7 +704,9 @@ variable (xs : Vector ℕ n :=
 
 
 def mH  := compute_m_H n
-def m := mH.1.1
+#check mH
+#eval mH.time
+def m := mH.ret.1
 def H := mH.1.2
 #eval #[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33].map (fun n ↦ (compute_m_H n).time == Nat.log 2 (n-1) + 2)
 #eval #[0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33].map (fun n ↦ Nat.log 2 (n-1))
@@ -707,6 +716,7 @@ def H := mH.1.2
 def albero := build ℕ NatWithSum n (by decide) xs
 
 #check albero
+#eval albero.time
 #eval albero.ret.a
 #eval query ℕ NatWithSum 9 albero.ret 2 8
 
