@@ -193,7 +193,7 @@ theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector
     assumption
 
 theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : Vector α n) :
-  (build α inst n h_n xs).time ≤ 3 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x2n+1 + 2x2n)
+  (build α inst n h_n xs).time ≤ 3 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x(2n-1)+1 + 2x(2n-1))
 := by
   unfold build
   simp
@@ -220,22 +220,22 @@ theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (h_n : n > 0) (xs : V
   exact log_sublinear n
 
 
-def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
-  query_aux 1 (by omega) (by have := st.h_m; omega)
-  where query_aux (j: ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
-    let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
-    -- si potrebbe fare un primo if che controlla se l'intervallo [p, q) e' vuoto
-    if h_sub : p ≤ d.L ∧ d.R ≤ q then   -- the coverage interval is a subinterval of the query interval
-      st.a.get ⟨j, h_j⟩
-    else if h_disjoint : q ≤ d.L ∨ d.R ≤ p then   -- the two intervals are disjoint
-      inst.one
-    --else if h_jm : j ≥ st.m then
-    --  st.a.get ⟨j, h_j⟩
-    else -- if we got to this case, j is not a leaf (and the two intervals have a proper, non-empty intersection)
-      have h_jm : j < st.m := by
-        rw [st.h_m_pow2H]
-        exact d.not_in_leaf p q h_sub h_disjoint
-      (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
+--def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
+--  query_aux 1 (by omega) (by have := st.h_m; omega)
+--  where query_aux (j: ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
+--    let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
+--    -- si potrebbe fare un primo if che controlla se l'intervallo [p, q) e' vuoto
+--    if h_sub : p ≤ d.L ∧ d.R ≤ q then   -- the coverage interval is a subinterval of the query interval
+--      st.a.get ⟨j, h_j⟩
+--    else if h_disjoint : q ≤ d.L ∨ d.R ≤ p then   -- the two intervals are disjoint
+--      inst.one
+--    --else if h_jm : j ≥ st.m then
+--    --  st.a.get ⟨j, h_j⟩
+--    else -- if we got to this case, j is not a leaf (and the two intervals have a proper, non-empty intersection)
+--      have h_jm : j < st.m := by
+--        rw [st.h_m_pow2H]
+--        exact d.not_in_leaf p q h_sub h_disjoint
+--      (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
 
 def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : TimeM α :=
@@ -565,12 +565,114 @@ theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α 
   sorry
 
 
+
+def update_helper {α : Type} [inst : Monoid α] (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
+  (h_j0 : j > 0) (b : Vector α (2 * st.m)) : Vector α (2 * st.m) :=
+  if h_j : j < 2*st.m then
+      if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
+        b.set j x h_j
+      else if h_empty : p < L ∨ p ≥ R then
+        b
+      else
+        let C := (L+R)/2
+        let b := update_helper n st x p (2*j) L C (by omega) b
+        let b := update_helper n st x p (2*j + 1) C R (by omega) b
+        b
+    else b
+
+def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vector α (2*m)) : Prop :=
+  ∀ (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m),
+    a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
+
+
+lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : Nat) (st : SegmentTree α n)
+    (h_j0 : j > 0) (h_j : j < 2*st.m) (b1 : Vector α (2*st.m)) :
+  let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
+  let b2 := update_helper n st val pos j x y h_j0 b1
+  (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
+    st_prop_except_ancestors st.m j b2 ∧ ((hposm: pos < st.m) → b2.get ⟨pos, by omega⟩ = val)
+  := by
+  sorry
+
+def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+  let b := update_helper n st x p 1 0 st.m (by omega) st.a
+
+  ⟨
+    st.n,
+    st.m,
+    st.H,
+    b,
+    st.h_m,
+    st.h_m_pow2H,
+    by {
+      have h1_2m : 1 < 2*st.m := by{
+        rw [Nat.lt_iff_add_one_le]; rw[show 1+1 = 2*1 from rfl]; rw [Nat.mul_le_mul_left_iff (by omega)];
+        rw [Nat.one_le_iff_ne_zero]; rw [Nat.ne_zero_iff_zero_lt]; exact st.h_m}
+
+      have proof := update_helper_correctness α inst n 1 0 st.m x p st (by omega) (by exact h1_2m) st.a
+
+      set d := CoverageIntervalDefs.from_st n 1 st (by omega) (by exact h1_2m) with h_d
+      simp at proof
+      have h_b : b = update_helper n st x p 1 0 st.m (by omega) st.a := by rfl
+      rw[← h_b] at proof
+      rw[d.h_R, d.h_L, d.h_k, d.h_h, d.h_l] at proof
+      rw [show 2 ^ Nat.log2 1 = 1 from rfl] at proof
+      simp at proof
+      rw [show Nat.log2 1 = 0 from rfl] at proof
+      simp at proof
+      rw[← st.h_m_pow2H] at proof
+      simp at proof
+
+      suffices hhh: st_prop_except_ancestors st.m 1 st.a by
+        apply proof at hhh
+        have hhh := hhh.left
+        unfold st_prop_except_ancestors at hhh
+        intro j h_j hjm
+        specialize hhh j
+        have h_j0 := h_j
+        rw [← gt_iff_lt] at h_j
+        apply hhh at h_j
+        simp [hjm] at h_j
+        apply h_j
+        intro g h_g0
+        rw [Nat.div_eq_of_lt (by {rw [Nat.one_lt_two_pow_iff]; omega})]
+        rw [← ne_eq j 0]
+        omega
+
+      unfold st_prop_except_ancestors
+      intro i hi
+      rw [gt_iff_lt] at hi
+      intro hg
+      intro him
+      apply st.h_children at hi
+      apply hi at him
+      exact him
+    }
+  ⟩
+
+  --where update_aux (j L R : ℕ) (h_j0 : j > 0) (b : Vector α (2*st.m)) : Vector α (2*st.m) :=
+  --  if h_j : j < 2*st.m then
+  --    if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
+  --      b.set j x h_j
+  --    else if h_empty : p < L ∨ p ≥ R then
+  --      b
+  --    else
+  --      let C := (L+R)/2
+  --      let b := update_aux (2*j) L C (by omega) b
+  --      let b := update_aux (2*j + 1) C R (by omega) b
+  --      b
+  --  else b
+
+
+
+
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m)
   proof (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m) :
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
-def update (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+
+def update_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
   let b := update_aux 1 (by omega) (by have := st.h_m; omega) ⟨st.a, by {
     intro i _ _ h_i_ub
     exact st.h_children i (by omega) h_i_ub
