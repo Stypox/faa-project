@@ -254,3 +254,13 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
       rw [Nat.mul_assoc (2 ^ (st.H - j.log2 - 1)) 2 (j - 2 ^ j.log2 + 1)]
       rw [Nat.mul_le_mul_left_iff (by simp)]
       omega
+
+
+
+
+lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
+  rw [Nat.log2_eq_log_two]
+  rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+  rw [Nat.succ_div_of_not_dvd (by omega)]
+  rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
+  rw [← Nat.log2_eq_log_two]
