@@ -698,18 +698,18 @@ theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α 
 
 
 def update_helper {α : Type} [inst : Monoid α] (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
-  (h_j0 : j > 0) (b : Vector α (2 * st.m)) : Vector α (2 * st.m) :=
+  (h_j0 : j > 0) (b : Vector α (2 * st.m)) : TimeM (Vector α (2 * st.m)) := do
   if h_j : j < 2*st.m then
-      if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
-        b.set j x h_j
-      else if h_empty : p < L ∨ p ≥ R then
-        b
-      else
-        let C := (L+R)/2
-        let b := update_helper n st x p (2*j) L C (by omega) b
-        let b := update_helper n st x p (2*j + 1) C R (by omega) b
-        b
-    else b
+    if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
+      ✓ (b.set j x h_j)
+    else if h_empty : p < L ∨ p ≥ R then
+      ✓ b
+    else
+      let C := (L+R)/2
+      let b ← update_helper n st x p (2*j) L C (by omega) b
+      let b ← update_helper n st x p (2*j + 1) C R (by omega) b
+      ✓ b
+  else ✓ b
 
 def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vector α (2*m)) : Prop :=
   ∀ (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m),
@@ -719,19 +719,19 @@ def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vecto
 lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : Nat) (st : SegmentTree α n)
     (h_j0 : j > 0) (h_j : j < 2*st.m) (b1 : Vector α (2*st.m)) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
-  let b2 := update_helper n st val pos j x y h_j0 b1
+  let b2 := (update_helper n st val pos j x y h_j0 b1).ret
   (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
     st_prop_except_ancestors st.m j b2 ∧ ((hposm: pos < st.m) → b2.get ⟨pos, by omega⟩ = val)
   := by
   sorry
 
-def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : TimeM (SegmentTree α n) := do
   let b := update_helper n st x p 1 0 st.m (by omega) st.a
 
-  ⟨
+  ⟨⟨
     st.m,
     st.H,
-    b,
+    b.ret,
     st.h_m0,
     st.h_mn,
     st.h_m2n,
@@ -780,22 +780,73 @@ def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : 
       apply hi at him
       exact him
     }
-  ⟩
+  ⟩, b.time⟩
 
-  --where update_aux (j L R : ℕ) (h_j0 : j > 0) (b : Vector α (2*st.m)) : Vector α (2*st.m) :=
-  --  if h_j : j < 2*st.m then
-  --    if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
-  --      b.set j x h_j
-  --    else if h_empty : p < L ∨ p ≥ R then
-  --      b
-  --    else
-  --      let C := (L+R)/2
-  --      let b := update_aux (2*j) L C (by omega) b
-  --      let b := update_aux (2*j + 1) C R (by omega) b
-  --      b
-  --  else b
+theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
+  (h_j0 : j > 0) (b : Vector α (2 * st.m)) :
+  (update_helper n st x p j L R h_j0 b).time ≤ 1 + 2 * (2 + st.H - Nat.log 2 j)
+:= by
+  unfold update_helper
+  split_ifs with h_j2m h_sub h_disjoint <;> simp
+  set C := ((L + R) / 2) with h_C
+  have h_H_geq_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
+
+  if h_pC : p < C then {
+    have h_left := update_helper_time α inst n st x p (2 * j) L C (by omega) b
+    have h_right : (update_helper n st x p (2 * j + 1) C R (by omega) ((update_helper n st x p (2 * j) L C (by omega) b).ret)).time = 1 := by
+      unfold update_helper
+      split_ifs <;> simp
+      grind
+    grw [h_left, h_right]
+    rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+    simp
+    omega
+  } else {
+    have h_left : (update_helper n st x p (2 * j) L C (by omega) b).time = 1 := by
+      unfold update_helper
+      split_ifs <;> simp
+      grind
+    have h_right := update_helper_time α inst n st x p (2 * j + 1) C R (by omega) (update_helper n st x p (2 * j) L C (by omega) b).ret
+    grw [h_left, h_right]
+    rw [odd_log2' j (by omega)]
+    rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
+    simp
+    omega
+  }
 
 
+theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) :
+  (update α inst n st x p).time ≤ 4 + 2 * (Nat.log 2 n + 2) + 1
+:= by
+  -- TODO deduplicate this proof with that of query_time
+  unfold update
+  simp
+  have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
+  grw [h_helper]
+  simp
+  rw [Nat.add_comm, Nat.mul_add]
+  simp
+  apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
+  rw [← st.h_m_pow2H]
+  cases st.h_m2n with
+  | inl h_m2n =>
+    rw [h_m2n]
+    exact Nat.one_le_pow ?_ 2 (by omega)
+  | inr h_m2n =>
+    grw [h_m2n]
+    have h_pow_log_n : 2 ^ (Nat.log 2 n + 1) > n := by
+      if h_n0 : n ≠ 0 then {
+        simp
+        rw [← Nat.log_lt_iff_lt_pow (by omega) (by omega)]
+        simp
+      } else {
+        simp_all
+      }
+    nth_rw 2 [show 2 = 1 + 1 from rfl]
+    rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
+    rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
+    grw [h_pow_log_n]
+    omega
 
 
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
@@ -956,7 +1007,7 @@ def albero := build ℕ NatWithSum n (by decide) xs
 
 def albero1 := update ℕ NatWithSum 9 albero.ret 5 3
 #check albero1
-#eval! albero1.a
+#eval! albero1.ret.a
 
 
 
