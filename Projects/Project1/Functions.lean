@@ -704,11 +704,12 @@ def update_helper {α : Type} [inst : Monoid α] (n : ℕ) (st : SegmentTree α 
       ✓ (b.set j x h_j)
     else if h_empty : p < L ∨ p ≥ R then
       ✓ b
-    else
+    else if h_int : 2*j+1 < 2*st.m then
       let C := (L+R)/2
       let b ← update_helper n st x p (2*j) L C (by omega) b
       let b ← update_helper n st x p (2*j + 1) C R (by omega) b
-      ✓ b
+      ✓ (b.set j (b.get ⟨2*j, (by omega)⟩ * b.get ⟨2*j +1, (by omega)⟩ ) (by omega))
+    else ✓ b
   else ✓ b
 
 def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vector α (2*m)) : Prop :=
@@ -721,7 +722,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   let b2 := (update_helper n st val pos j x y h_j0 b1).ret
   (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
-    st_prop_except_ancestors st.m j b2 ∧ (pos ≥ x ∧ pos < y → b2.get ⟨pos + st.m, by omega⟩ = val)
+    st_prop_except_ancestors st.m j b2 ∧ ((x ≤ pos ∧ pos < y) → b2.get ⟨pos + st.m, by omega⟩ = val)
   := by
 
   set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
@@ -739,7 +740,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   --  rw [Nat.log2_two_pow]
   simp only [TimeM.tick] -- get rid of time measurement
 
-  split_ifs with h_sub h_disjoint <;> simp
+  split_ifs with h_sub h_disjoint h_int <;> simp
   · have h_leaf : st.m ≤ j := by
         obtain ⟨h_pL, h_pR⟩ := h_sub
         rw [h_pL] at h_pR
@@ -769,7 +770,185 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
     · assumption
     · grind
 
-  · sorry
+  all_goals have h_internal : j < 2^st.H := d.not_in_leaf pos (pos+1) (by grind) (by grind)
+  all_goals simp at h_disjoint
+  all_goals have h2j12m : 2*j + 1 < 2*st.m := by {
+    rw [Nat.lt_iff_add_one_le] at h_internal; rw [Nat.lt_iff_add_one_le]
+    rw[← st.h_m_pow2H] at h_internal;
+    ring_nf; nth_rw 1 [← one_add_one_eq_two]; rw [← Nat.mul_two 1]
+    rw [← Nat.add_mul 1 j 2]; rw [Nat.add_comm 1 j]
+    gcongr
+  }
+  all_goals have h2j2m : 2*j < 2*st.m := by omega
+
+  · --have h_internal : j < 2^st.H := d.not_in_leaf pos (pos+1) (by grind) (by grind)
+    --simp at h_disjoint
+--
+    --have h2j12m : 2*j + 1 < 2*st.m := by {
+    --  rw [Nat.lt_iff_add_one_le] at h_internal; rw [Nat.lt_iff_add_one_le]
+    --  rw[← st.h_m_pow2H] at h_internal;
+    --  ring_nf; nth_rw 1 [← one_add_one_eq_two]; rw [← Nat.mul_two 1]
+    --  rw [← Nat.add_mul 1 j 2]; rw [Nat.add_comm 1 j]
+    --  gcongr
+    --}
+    --have h2j2m : 2*j < 2*st.m := by omega
+
+    have h_0_lt_h := d.internal_0_lt_h h_internal
+    set C := (d.L+d.R)/2 with h_C
+    -- deduplicare 'sta roba
+    have hCL : C = d.L + 2 ^ (d.h - 1) := by
+      subst C
+      rw [d.h_R]
+      rw [← Nat.add_assoc d.L d.L (2 ^ d.h)]
+      rw [← Nat.mul_two d.L]
+      rw [← Nat.pow_pred_mul (by omega)]
+      rw [← Nat.add_mul d.L (2 ^ (d.h - 1)) 2]
+      rw [Nat.mul_div_left (d.L + 2 ^ (d.h - 1)) (by omega)]
+
+    have h_C_eq : C = 2^(d.h-1)*(2*d.k+1) := by
+      rw [hCL]
+      rw [d.h_L]
+      rw [← Nat.two_pow_pred_mul_two (by omega)]
+      grind
+
+    set dLeft := CoverageIntervalDefs.from_st n (2 * j) st (by omega) (by omega) with h_dL
+    set dRight := CoverageIntervalDefs.from_st n (2 * j + 1) st (by omega) (by omega) with h_dR
+
+    -- deduplicare 'sta roba
+    have h_intervs :
+      (dLeft.L = d.L ∧ dLeft.R = C)
+      ∧ (dRight.L = C ∧ dRight.R = d.R) := by
+      have hll : dLeft.L = d.L := by
+        rw[d.h_L, d.h_k, d.h_h, d.h_l]
+        rw[dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
+        rw [Nat.log2_two_mul (by omega)]
+        rw [Nat.pow_add_one']
+        rw [← Nat.mul_sub 2 j (2 ^ j.log2)]
+        rw [← Nat.mul_assoc (2 ^ (st.H - (j.log2 + 1))) 2 (j - 2 ^ j.log2)]
+        rw [← Nat.pow_add_one 2 (st.H - (j.log2 + 1))]
+        rw [← tsub_tsub_assoc ?_ (by omega)]
+        grind
+        rw [← Nat.log2_lt (by omega)] at h_internal
+        omega
+
+      have hlr : dLeft.R = C := by
+        rw[hCL]
+        rw[dLeft.h_R]
+        rw[hll]
+        rw [Nat.add_right_inj]
+        rw[d.h_h, d.h_l]
+        rw[dLeft.h_h, dLeft.h_l]
+        simp
+        rw [Nat.log2_two_mul (by omega)]
+        grind
+
+      have hrl : dRight.L = dLeft.R := by
+        rw[dLeft.h_R, dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
+        rw[dRight.h_L, dRight.h_k, dRight.h_h, dRight.h_l]
+        rw[odd_log2 j (by omega)]
+        rw [← Nat.mul_add_one (2 ^ (st.H - (2 * j).log2)) (2 * j - 2 ^ (2 * j).log2)]
+        rw [← Nat.sub_add_comm ?_]
+        rw [← Nat.le_log2 (by omega)]
+
+      have hrr : dRight.R = d.R := by
+        rw[dRight.h_R, hrl, hlr, hCL, d.h_R]
+        --rw [Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ dRight.h)]
+        nth_rw 3 [← Nat.two_pow_pred_mul_two (by omega)]
+        rw [Nat.mul_two (2 ^ (d.h - 1))]
+        rw [← Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ (d.h - 1))]
+        simp
+        rw[d.h_h, d.h_l]
+        rw[dRight.h_h, dRight.h_l]
+        rw[odd_log2 j (by omega)]
+        rw [Nat.log2_two_mul (by omega)]
+        grind
+
+      constructor
+      · constructor
+        · exact hll
+        · exact hlr
+      · constructor
+        · rw[hrl, hlr]
+        · rw[hrr]
+
+
+    have h_updateLeft := update_helper_correctness α inst n (2*j) x C val pos st
+      (by omega) (by omega) (by omega) b1
+    simp [← h_dL] at h_updateLeft
+    rw[← h_x, ← h_y] at h_updateLeft
+    simp [h_intervs] at h_updateLeft
+
+    have h_prop_left : st_prop_except_ancestors st.m (2 * j) b1 := by
+      unfold st_prop_except_ancestors
+      intro i h_i0 h_i h_i_ub
+      exact h_input i h_i0 (by{
+        intro g g0
+        specialize h_i (g+1)
+        simp at h_i
+        rw [Nat.pow_add_one'] at h_i
+        rw [Nat.mul_div_mul_left j (2 ^ g) (by omega)] at h_i
+        assumption
+      }) h_i_ub
+    simp [h_prop_left] at h_updateLeft
+    set bLeft := (update_helper n st val pos (2 * j) d.L C (by omega) b1).ret with h_bLeft
+
+    have h_updateRight := update_helper_correctness α inst n (2*j+1) C y val pos st
+      (by omega) (by omega) (by omega) bLeft
+    simp [← h_dR] at h_updateRight
+    rw[← h_x, ← h_y] at h_updateRight
+    simp [h_intervs] at h_updateRight
+
+    have h_prop_right : st_prop_except_ancestors st.m (2 * j + 1) bLeft := by
+      unfold st_prop_except_ancestors
+      intro i h_i0 h_i h_i_ub
+      have roba := h_updateLeft.left i h_i0 (by{
+        have h_tmp := succ_div_even_eq_div_even_pow2
+        intro g g0
+        specialize h_i g
+        specialize h_tmp j g
+        simp [g0] at h_tmp
+        rw[h_tmp] at h_i
+        simp [g0] at h_i
+        --rw [Nat.pow_add_one'] at h_i
+        --rw [Nat.mul_div_mul_left j (2 ^ g) (by omega)] at h_i
+        assumption
+      }) h_i_ub
+      exact roba
+    simp [h_prop_right] at h_updateRight
+    set bRight := (update_helper n st val pos (2 * j + 1) C d.R (by omega) bLeft).ret with h_bRight
+
+    constructor
+    · unfold st_prop_except_ancestors
+      intro i h_i0 h_i_not_anc h_i_ub
+      simp [Vector.set, Vector.get, Array.set, List.getElem_set]
+      split_ifs <;> expose_names
+      all_goals try grind
+      --· rw[h_1] at h_2; rw [Nat.add_eq_left] at h_2; contradiction
+      --· rw[h] at h_1; rw [Nat.Simproc.eq_add_gt i ?_] at h_1; contradiction
+      --  grind
+      --· rw[h] at h_2; rw [right_eq_mul₀ (by grind)] at h_2
+      --  contradiction
+      --· grind
+      --· grind
+      all_goals have h_updateRight := h_updateRight.left
+      all_goals unfold st_prop_except_ancestors at h_updateRight
+      all_goals have h_uRI := h_updateRight
+      all_goals specialize h_uRI i
+      all_goals simp [h_i0, h_i_ub] at h_uRI
+      all_goals have h_i_not_anc_2j1 : (∀ g > 0, i ≠ (2 * j + 1) / 2 ^ g) := by{
+        intro g g0
+        rw[succ_div_even_eq_div_even_pow2 j g g0]
+        rw [← Nat.two_pow_pred_mul_two (by omega)]
+        rw [Nat.mul_comm (2 ^ (g - 1)) 2]
+        rw??
+        }
+      · sorry
+      · sorry
+      ·
+
+    ·
+      sorry
+  · contradiction
 
 
 def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : TimeM (SegmentTree α n) := do
