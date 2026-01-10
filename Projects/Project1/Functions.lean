@@ -717,70 +717,123 @@ def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vecto
 
 
 lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : Nat) (st : SegmentTree α n)
-    (h_j0 : j > 0) (h_j : j < 2*st.m) (b1 : Vector α (2*st.m)) :
+    (h_j0 : j > 0) (h_j : j < 2*st.m) (hposm: pos < st.m) (b1 : Vector α (2*st.m)) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   let b2 := (update_helper n st val pos j x y h_j0 b1).ret
   (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
-    st_prop_except_ancestors st.m j b2 ∧ ((hposm: pos < st.m) → b2.get ⟨pos, by omega⟩ = val)
+    st_prop_except_ancestors st.m j b2 ∧ b2.get ⟨pos + st.m, by omega⟩ = val
   := by
-  sorry
+
+  set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
+  --set b2 := (update_helper n st val pos j x y h_j0 b1).ret with h_b2
+  simp
+  intro h_x h_y
+  rw [← h_x, ← h_y]
+  intro h_input
+
+  unfold update_helper
+  --have H_spec := st.h_m_pow2H
+  --have H_spec2: st.H = st.m.log2 := by
+  --  rw[H_spec]
+  --  rw [Nat.log2_two_pow]
+  simp only [TimeM.tick] -- get rid of time measurement
+
+  split_ifs with h_sub h_disjoint <;> simp
+  · have h_leaf : st.m ≤ j := by
+        obtain ⟨h_pL, h_pR⟩ := h_sub
+        rw [h_pL] at h_pR
+        rw [st.h_m_pow2H]
+        exact d.leaf_interval_R.mpr (by omega)
+
+    unfold st_prop_except_ancestors
+    simp [Vector.set, Vector.get, Array.set, List.getElem_set]
+
+    constructor
+    · intro i h_i0 h_i_neq_j2 h_i_ub
+      split_ifs with h1 h2 h3 h3 <;> try omega
+      · specialize h_i_neq_j2 1 (by omega)
+        omega
+      · specialize h_i_neq_j2 1 (by omega)
+        omega
+      · exact h_input i h_i0 h_i_neq_j2 h_i_ub
+
+    · have h_tmp : pos + st.m = j := by
+        rw[h_sub.left, CoverageIntervalDefs.leaf_interval_L d (by {rw[← st.h_m_pow2H]; exact h_leaf}), ← st.h_m_pow2H]
+        rw [tsub_add_cancel_of_le h_leaf]
+      intro hhh
+      rw[h_tmp] at hhh
+      contradiction
+
+  · sorry
+  · sorry
+
 
 def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : TimeM (SegmentTree α n) := do
-  let b := update_helper n st x p 1 0 st.m (by omega) st.a
+  if hposm: p < st.m then
+    let b := update_helper n st x p 1 0 st.m (by omega) st.a
 
-  ⟨⟨
-    st.m,
-    st.H,
-    b.ret,
-    st.h_m0,
-    st.h_mn,
-    st.h_m2n,
-    st.h_m_pow2H,
-    by {
-      have h1_2m : 1 < 2*st.m := by{
-        rw [Nat.lt_iff_add_one_le]; rw[show 1+1 = 2*1 from rfl]; rw [Nat.mul_le_mul_left_iff (by omega)];
-        rw [Nat.one_le_iff_ne_zero]; rw [Nat.ne_zero_iff_zero_lt]; exact st.h_m0}
+    ⟨⟨
+      st.m,
+      st.H,
+      b.ret,
+      st.h_m0,
+      st.h_mn,
+      st.h_m2n,
+      st.h_m_pow2H,
+      by {
+        have h1_2m : 1 < 2*st.m := by{
+          rw [Nat.lt_iff_add_one_le]; rw[show 1+1 = 2*1 from rfl]; rw [Nat.mul_le_mul_left_iff (by omega)];
+          rw [Nat.one_le_iff_ne_zero]; rw [Nat.ne_zero_iff_zero_lt]; exact st.h_m0}
 
-      have proof := update_helper_correctness α inst n 1 0 st.m x p st (by omega) (by exact h1_2m) st.a
+        have proof := update_helper_correctness α inst n 1 0 st.m x p st (by omega) (by exact h1_2m) hposm st.a
 
-      set d := CoverageIntervalDefs.from_st n 1 st (by omega) (by exact h1_2m) with h_d
-      simp at proof
-      have h_b : b = update_helper n st x p 1 0 st.m (by omega) st.a := by rfl
-      rw[← h_b] at proof
-      rw[d.h_R, d.h_L, d.h_k, d.h_h, d.h_l] at proof
-      rw [show 2 ^ Nat.log2 1 = 1 from rfl] at proof
-      simp at proof
-      rw [show Nat.log2 1 = 0 from rfl] at proof
-      simp at proof
-      rw[← st.h_m_pow2H] at proof
-      simp at proof
+        set d := CoverageIntervalDefs.from_st n 1 st (by omega) (by exact h1_2m) with h_d
+        simp at proof
+        have h_b : b = update_helper n st x p 1 0 st.m (by omega) st.a := by rfl
+        rw[← h_b] at proof
+        rw[d.h_R, d.h_L, d.h_k, d.h_h, d.h_l] at proof
+        rw [show 2 ^ Nat.log2 1 = 1 from rfl] at proof
+        simp at proof
+        rw [show Nat.log2 1 = 0 from rfl] at proof
+        simp at proof
+        rw[← st.h_m_pow2H] at proof
+        simp at proof
 
-      suffices hhh: st_prop_except_ancestors st.m 1 st.a by
-        apply proof at hhh
-        have hhh := hhh.left
-        unfold st_prop_except_ancestors at hhh
-        intro j h_j hjm
-        specialize hhh j
-        have h_j0 := h_j
-        rw [← gt_iff_lt] at h_j
-        apply hhh at h_j
-        simp [hjm] at h_j
-        apply h_j
-        intro g h_g0
-        rw [Nat.div_eq_of_lt (by {rw [Nat.one_lt_two_pow_iff]; omega})]
-        rw [← ne_eq j 0]
-        omega
+        suffices hhh: st_prop_except_ancestors st.m 1 st.a by
+          apply proof at hhh
+          have hhh := hhh.left
+          unfold st_prop_except_ancestors at hhh
+          intro j h_j hjm
+          specialize hhh j
+          have h_j0 := h_j
+          rw [← gt_iff_lt] at h_j
+          apply hhh at h_j
+          simp [hjm] at h_j
+          apply h_j
+          intro g h_g0
+          rw [Nat.div_eq_of_lt (by {rw [Nat.one_lt_two_pow_iff]; omega})]
+          rw [← ne_eq j 0]
+          omega
 
-      unfold st_prop_except_ancestors
-      intro i hi
-      rw [gt_iff_lt] at hi
-      intro hg
-      intro him
-      apply st.h_children at hi
-      apply hi at him
-      exact him
-    }
-  ⟩, b.time⟩
+        unfold st_prop_except_ancestors
+        intro i hi
+        rw [gt_iff_lt] at hi
+        intro hg
+        intro him
+        apply st.h_children at hi
+        apply hi at him
+        exact him
+      }
+    ⟩, b.time⟩
+  else ✓ ⟨
+      st.m,
+      st.H,
+      st.a,
+      st.h_m0,
+      st.h_mn,
+      st.h_m2n,
+      st.h_m_pow2H,
+      st.h_children⟩
 
 theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
   (h_j0 : j > 0) (b : Vector α (2 * st.m)) :
@@ -821,32 +874,34 @@ theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α
   -- TODO deduplicate this proof with that of query_time
   unfold update
   simp
-  have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
-  grw [h_helper]
-  simp
-  rw [Nat.add_comm, Nat.mul_add]
-  simp
-  apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
-  rw [← st.h_m_pow2H]
-  cases st.h_m2n with
-  | inl h_m2n =>
-    rw [h_m2n]
-    exact Nat.one_le_pow ?_ 2 (by omega)
-  | inr h_m2n =>
-    grw [h_m2n]
-    have h_pow_log_n : 2 ^ (Nat.log 2 n + 1) > n := by
-      if h_n0 : n ≠ 0 then {
-        simp
-        rw [← Nat.log_lt_iff_lt_pow (by omega) (by omega)]
-        simp
-      } else {
-        simp_all
-      }
-    nth_rw 2 [show 2 = 1 + 1 from rfl]
-    rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
-    rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
-    grw [h_pow_log_n]
-    omega
+  split_ifs with hposm
+  · have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
+    grw [h_helper]
+    simp
+    rw [Nat.add_comm, Nat.mul_add]
+    simp
+    apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
+    rw [← st.h_m_pow2H]
+    cases st.h_m2n with
+    | inl h_m2n =>
+      rw [h_m2n]
+      exact Nat.one_le_pow ?_ 2 (by omega)
+    | inr h_m2n =>
+      grw [h_m2n]
+      have h_pow_log_n : 2 ^ (Nat.log 2 n + 1) > n := by
+        if h_n0 : n ≠ 0 then {
+          simp
+          rw [← Nat.log_lt_iff_lt_pow (by omega) (by omega)]
+          simp
+        } else {
+          simp_all
+        }
+      nth_rw 2 [show 2 = 1 + 1 from rfl]
+      rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
+      rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
+      grw [h_pow_log_n]
+      omega
+  · simp
 
 
 structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
