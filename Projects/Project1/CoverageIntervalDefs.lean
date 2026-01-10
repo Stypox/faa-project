@@ -79,24 +79,19 @@ lemma CoverageIntervalDefs.leaf_l_eq_H {j H : ℕ} (d : CoverageIntervalDefs j H
     · exact h_leaf
     · exact d.j_neq_0
 
-lemma CoverageIntervalDefs.internal_l_lt_H {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : d.l < H := by
-  rw [d.h_l]
-  simp at h_internal
-  rw [← Nat.log2_lt (by exact d.j_neq_0)] at h_internal
-  omega
-lemma CoverageIntervalDefs.internal_l_lt_H' {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < H - j.log2 := by
-  simp [← d.h_l, d.internal_l_lt_H h_internal]
-lemma CoverageIntervalDefs.internal_l_lt_H'' {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < H - (Nat.log 2 j) := by
-  simp [← Nat.log2_eq_log_two, d.internal_l_lt_H' h_internal]
-lemma CoverageIntervalDefs.internal_0_lt_h {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < d.h := by
-  rw [d.h_h]
-  rw [Nat.sub_pos_iff_lt]
-  exact d.internal_l_lt_H h_internal
-
 lemma CoverageIntervalDefs.leaf_pow2_h_eq_1 {j H : ℕ} (d : CoverageIntervalDefs j H) (h_leaf : 2^H ≤ j) : 2^d.h = 1 := by
   rw [d.h_h]
   rw [Nat.sub_eq_zero_of_le (by simp [d.leaf_l_eq_H h_leaf])]
   omega
+
+lemma CoverageIntervalDefs.leaf_interval_L {j H : ℕ} (d : CoverageIntervalDefs j H) (h_leaf : 2^H ≤ j) :
+  d.L = j-2^H
+:= by
+  rw [d.h_L]
+  rw [d.leaf_pow2_h_eq_1 h_leaf]
+  simp
+  rw [d.h_k]
+  rw [d.leaf_l_eq_H h_leaf]
 
 lemma CoverageIntervalDefs.leaf_interval_R {j H : ℕ} (d : CoverageIntervalDefs j H) : 2^H ≤ j ↔ d.R = d.L+1 := by
   constructor
@@ -118,15 +113,6 @@ lemma CoverageIntervalDefs.leaf_interval_R {j H : ℕ} (d : CoverageIntervalDefs
     · assumption
     · rw [← Nat.le_log_iff_pow_le (by omega) d.j_neq_0]
 
-lemma CoverageIntervalDefs.leaf_interval_L {j H : ℕ} (d : CoverageIntervalDefs j H) (h_leaf : 2^H ≤ j) :
-  d.L = j-2^H
-:= by
-  rw [d.h_L]
-  rw [d.leaf_pow2_h_eq_1 h_leaf]
-  simp
-  rw [d.h_k]
-  rw [d.leaf_l_eq_H h_leaf]
-
 lemma CoverageIntervalDefs.not_in_leaf {j H : ℕ} (d : CoverageIntervalDefs j H)
   (p q : ℕ) (h_sub : ¬(p ≤ d.L ∧ d.R ≤ q)) (h_disjoint : ¬(q ≤ d.L ∨ d.R ≤ p)) : j < 2^H
 := by
@@ -146,8 +132,23 @@ lemma CoverageIntervalDefs.not_in_leaf {j H : ℕ} (d : CoverageIntervalDefs j H
   rw [lt_self_iff_false] at hd1
   exact hd1
 
+lemma CoverageIntervalDefs.internal_l_lt_H {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : d.l < H := by
+  rw [d.h_l]
+  simp at h_internal
+  rw [← Nat.log2_lt (by exact d.j_neq_0)] at h_internal
+  omega
+lemma CoverageIntervalDefs.internal_l_lt_H' {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < H - j.log2 := by
+  simp [← d.h_l, d.internal_l_lt_H h_internal]
+lemma CoverageIntervalDefs.internal_l_lt_H'' {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < H - (Nat.log 2 j) := by
+  simp [← Nat.log2_eq_log_two, d.internal_l_lt_H' h_internal]
+
+lemma CoverageIntervalDefs.internal_0_lt_h {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : 0 < d.h := by
+  rw [d.h_h]
+  rw [Nat.sub_pos_iff_lt]
+  exact d.internal_l_lt_H h_internal
+
 -- helper lemma
-lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
+lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h0j hj2m
   st.a.get ⟨j, hj2m⟩ = (st.a.toArray.extract (st.m+d.L) (st.m+d.R)).foldl (fun a b => a * b) 1
@@ -171,8 +172,8 @@ lemma SegmentTree.h_coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st :
 
   · simp at h_leaf
     rw [st.h_children j h0j (by simp [st.h_m_pow2H]; omega)]   -- in this case a[j] is an internal node of the tree
-    rw [st.h_coverage_interval (h0j:=by omega)]
-    rw [st.h_coverage_interval (h0j:=by omega)]
+    rw [st.coverage_interval (h0j:=by omega)]
+    rw [st.coverage_interval (h0j:=by omega)]
     simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
 
     set aL := 2^st.H + d.L with h_aL

@@ -283,7 +283,7 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
   · -- case where coverage interval [L, R) is completely included in query interval [p, q)
     rw [Nat.max_eq_left h_sub.left]
     rw [Nat.min_eq_left h_sub.right]
-    rw [st.h_coverage_interval n j h_j0 h_j]
+    rw [st.coverage_interval n j h_j0 h_j]
 
   · -- case where coverage interval [L, R) and query interval [p, q) are disjoint
     cases h_disjoint with
