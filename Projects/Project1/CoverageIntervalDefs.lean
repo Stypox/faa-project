@@ -284,3 +284,55 @@ lemma log_sublinear (n : ℕ) : Nat.log 2 (n - 1) ≤ n := by
   } else {
     simp_all
   }
+
+
+
+
+lemma succ_div_even_eq_div_even (a b: ℕ) :  (2 * a + 1) / (2 * b) = (2 * a) / (2 * b) := by
+  rw [Nat.succ_div_of_not_dvd ?_]
+  by_contra h_contra
+  have h22b : 2 ∣ 2*b := by omega
+  grw[← h22b] at h_contra
+  rw [Nat.dvd_add_right (by omega)] at h_contra
+  contradiction
+
+
+lemma succ_div_even_eq_div_even_pow2 (j: ℕ) :  ∀ g > 0, (2 * j + 1) / 2 ^ g = (2 * j) / 2 ^ g := by
+  intro g g0
+  rw [← Nat.two_pow_pred_mul_two (by omega)]
+  rw [Nat.mul_comm (2 ^ (g - 1)) 2]
+  exact succ_div_even_eq_div_even j (2^(g-1))
+
+  --rw [Nat.div_eq_iff (Nat.two_pow_pos g)]
+  --constructor
+  --· rw [Nat.div_mul_self_eq_mod_sub_self]
+  --  trans (2*j)
+  --  · grind
+  --  · omega
+  --· rw [Nat.div_mul_self_eq_mod_sub_self]
+  --  rw [← Nat.sub_add_comm (by {grw[Nat.mod_le]})]
+  --  rw [Nat.sub_sub (2 * j + 2 ^ g) (2 * j % 2 ^ g) 1]
+  --  rw [Nat.add_sub_assoc (by omega) (2 * j)]
+  --  simp
+  --  rw [Nat.le_sub_iff_add_le (by omega)]
+  --  rw [Nat.one_add_le_iff]
+  --  by_contra h_contra
+  --  simp at h_contra
+  --  rw [Nat.le_add_one_iff] at h_contra
+  --  cases h_contra <;> expose_names
+  --  ·
+  --    have h1 : 2 * j % 2 ^ g < 2^g := by omega
+  --    grw[← h] at h1
+  --    simp_all
+  --  ·
+  --    have h : (2 ^ g) % 2 = (2 * j % 2 ^ g + 1) % 2 := by omega
+  --    --simp at h
+  --    rw [Nat.pow_mod 2 g 2] at h
+  --    rw [show 2 % 2 = 0 from rfl] at h
+  --    rw [Nat.zero_pow (by omega)] at h
+  --    rw [show 0 % 2 = 0 from rfl] at h
+  --    rw [Nat.add_mod (2 * j % 2 ^ g) 1 2] at h
+  --    rw [show 1 % 2 = 1 from rfl] at h
+  --    rw [Nat.mod_mod_of_dvd (2 * j) (by omega)] at h
+  --    rw [Nat.mul_mod_right 2 j] at h
+  --    simp at h
