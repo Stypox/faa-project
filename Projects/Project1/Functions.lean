@@ -721,11 +721,12 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   let b2 := (update_helper n st val pos j x y h_j0 b1).ret
   (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
-    st_prop_except_ancestors st.m j b2 ∧ b2.get ⟨pos + st.m, by omega⟩ = val
+    st_prop_except_ancestors st.m j b2 ∧ (pos ≥ x ∧ pos < y → b2.get ⟨pos + st.m, by omega⟩ = val)
   := by
 
   set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
-  --set b2 := (update_helper n st val pos j x y h_j0 b1).ret with h_b2
+  -- set b2 := (update_helper n st val pos j x y h_j0 b1).ret with h_b2
+  -- rw [h_b2]
   simp
   intro h_x h_y
   rw [← h_x, ← h_y]
@@ -760,11 +761,14 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
     · have h_tmp : pos + st.m = j := by
         rw[h_sub.left, CoverageIntervalDefs.leaf_interval_L d (by {rw[← st.h_m_pow2H]; exact h_leaf}), ← st.h_m_pow2H]
         rw [tsub_add_cancel_of_le h_leaf]
-      intro hhh
+      intro h_Lpos h_posR hhh
       rw[h_tmp] at hhh
       contradiction
 
-  · sorry
+  · constructor
+    · assumption
+    · grind
+
   · sorry
 
 
