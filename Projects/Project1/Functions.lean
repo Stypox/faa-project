@@ -930,24 +930,60 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       --  contradiction
       --· grind
       --· grind
-      all_goals have h_updateRight := h_updateRight.left
-      all_goals unfold st_prop_except_ancestors at h_updateRight
-      all_goals have h_uRI := h_updateRight
-      all_goals specialize h_uRI i
-      all_goals simp [h_i0, h_i_ub] at h_uRI
-      all_goals have h_i_not_anc_2j1 : (∀ g > 0, i ≠ (2 * j + 1) / 2 ^ g) := by{
-        intro g g0
-        rw[succ_div_even_eq_div_even_pow2 j g g0]
-        rw [← Nat.two_pow_pred_mul_two (by omega)]
-        rw [Nat.mul_comm (2 ^ (g - 1)) 2]
-        rw??
-        }
-      · sorry
-      · sorry
-      ·
+      all_goals try have hij : i = j/(2^1) := by omega
+      · specialize h_i_not_anc 1
+        simp at h_i_not_anc
+        simp at hij
+        contradiction
+      · specialize h_i_not_anc 1
+        simp at h_i_not_anc
+        simp at hij
+        contradiction
+      · have h_updateRight := h_updateRight.left
+        unfold st_prop_except_ancestors at h_updateRight
 
-    ·
-      sorry
+        have h_uRI := h_updateRight
+        specialize h_uRI i
+        simp [h_i0, h_i_ub] at h_uRI
+        have h_i_not_anc_2j1 : (∀ g > 0, i ≠ (2 * j + 1) / 2 ^ g) := by{
+          intro g g0
+          rw[succ_div_even_eq_div_even_pow2 j g g0]
+          rw [← Nat.two_pow_pred_mul_two (by omega)]
+          rw [Nat.mul_comm (2 ^ (g - 1)) 2]
+          rw [Nat.mul_div_mul_left j (2 ^ (g - 1)) (by omega)]
+          if hg : g = 1 then { grind } else {
+            exact h_i_not_anc (g-1) (by omega)
+          }
+        }
+        simp at h_i_not_anc_2j1
+        apply h_uRI at h_i_not_anc_2j1
+        simp [Vector.get] at h_i_not_anc_2j1
+        exact h_i_not_anc_2j1
+
+    · rw[← st.h_m_pow2H] at h_internal
+      simp [h_disjoint]
+      simp [Vector.set, Vector.get, Array.set, List.getElem_set]
+      split_ifs <;> expose_names
+      · rw[h] at h_internal
+        rw [add_lt_iff_neg_right st.m] at h_internal
+        contradiction
+      · by_cases h_C_where : C ≤ pos
+        · apply h_updateRight.right at h_C_where
+          simp [h_disjoint] at h_C_where
+          simp [Vector.get] at h_C_where
+          exact h_C_where
+        · simp at h_C_where
+          subst bRight
+          unfold update_helper
+          simp only [TimeM.tick]
+          simp [h2j12m, h_C_where]
+          have h_tmp : ¬pos = C := by omega
+          simp [h_tmp]
+          simp [h_disjoint] at h_updateLeft
+          apply h_updateLeft.right at h_C_where
+          simp [Vector.get] at h_C_where
+          exact h_C_where
+
   · contradiction
 
 
