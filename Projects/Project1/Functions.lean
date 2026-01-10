@@ -221,7 +221,7 @@ theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) :
   exact log_sublinear n
 
 
--- def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : α :=
+-- def query_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) : α :=
 --   query_aux 1 (by omega) (by have := st.h_m0; omega)
 --   where query_aux (j: ℕ) (h_j0 : j > 0) (h_j : j < 2*st.m) : α :=
 --     let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
@@ -239,7 +239,7 @@ theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) :
 --       (query_aux (2*j) (by omega) (by omega)) * (query_aux (2*j + 1) (by omega) (by omega))
 
 
-def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) : TimeM α :=
+def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) : TimeM α :=
   query_aux 1 0 st.m (by omega)
   where query_aux (j L R: ℕ) (h_j0 : j > 0) : TimeM α := do
     if h_j2m : j < 2*st.m then
@@ -515,7 +515,7 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
 #check Nat.lt_pow_succ_log_self
 #check Array.foldl_empty
 
-theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
   (query α inst n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
 := by
   unfold query
@@ -666,7 +666,7 @@ theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree
 -- completes the proof by lifting the general proof about query_aux into the specific
 -- case where j=1, L=0, R=m,
 -- and then proves the time complexity in terms of n based on the time complexity in terms of m
-theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p : Nat) (q : Nat) :
+theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
   (query α inst n st p q).time ≤ 4 * (Nat.log 2 n + 2) + 9
 := by
   unfold query
@@ -718,7 +718,7 @@ def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vecto
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
 
-lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : Nat) (st : SegmentTree α n)
+lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : ℕ) (st : SegmentTree α n)
     (h_j0 : j > 0) (h_j : j < 2*st.m) (hposm: pos < st.m) (b1 : Vector α (2*st.m)) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   let b2 := (update_helper n st val pos j x y h_j0 b1).ret
@@ -774,7 +774,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   · sorry
 
 
-def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : TimeM (SegmentTree α n) := do
+def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) : TimeM (SegmentTree α n) := do
   if hposm: p < st.m then
     let b := update_helper n st x p 1 0 st.m (by omega) st.a
 
@@ -874,7 +874,7 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
   }
 
 
-theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) :
+theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) :
   (update α inst n st x p).time ≤ 4 + 2 * (Nat.log 2 n + 2) + 1
 := by
   -- TODO deduplicate this proof with that of query_time
@@ -915,7 +915,7 @@ structure UpdateHelperStruct (α : Type*) [Monoid α] (m j : ℕ) where
   proof (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m) :
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
 
-def update_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : Nat) : SegmentTree α n :=
+def update_old (α : Type*) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) : SegmentTree α n :=
   let b := update_aux 1 (by omega) (by have := st.h_m0; omega) ⟨st.a, by {
     intro i _ _ h_i_ub
     exact st.h_children i (by omega) h_i_ub
@@ -1059,7 +1059,7 @@ def H := mH.1.2
 #eval m
 #eval H
 
-def albero := build ℕ NatWithSum n (by decide) xs
+def albero := build ℕ NatWithSum n xs
 
 #check albero
 #eval albero.time
