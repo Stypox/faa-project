@@ -26,7 +26,7 @@ def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q :
 
 lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
-  d.L = x ∧ d.R = y →
+  d.L = x → d.R = y →
     (query.query_aux α inst n st p q j x y h_j0).ret = (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1
   := by
 
@@ -39,14 +39,10 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
     rw [Nat.log2_two_pow]
   simp only [TimeM.tick] -- get rid of time measurement
 
-  intro h_xy
-  rw [← h_xy.left, ← h_xy.right]
+  intro h_x h_y
+  rw [← h_x, ← h_y]
 
-  split_ifs with h_sub h_disjoint --<;> (
-  --  try rw [← h_d];
-  --  try rw [← h_d] at h_sub;
-  --  try rw [← h_d] at h_disjoint;
-  --)
+  split_ifs with h_sub h_disjoint
   · -- case where coverage interval [L, R) is completely included in query interval [p, q)
     rw [Nat.max_eq_left h_sub.left]
     rw [Nat.min_eq_left h_sub.right]
@@ -56,228 +52,59 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
     cases h_disjoint with
     | inl h_disjoint =>
       rw [Nat.min_eq_right (by grw[h_disjoint, d.L_lt_R])]
-      suffices h_ineq : q ≤ max d.L p by
-        rw [Array.extract_eq_empty_of_le ?_]
-        · rw[Array.foldl_empty]
-          rfl
-        · rw [st.a.size_toArray]
-          rw [Nat.two_mul st.m]
-          rw [Nat.add_min_add_left st.m q st.m]
-          rw [Nat.add_le_add_iff_left]
-          trans q
-          · omega
-          · assumption
-      trans d.L <;> omega
+      have h_ineq : q ≤ max d.L p := by omega
+      rw [Array.extract_eq_empty_of_le (by omega)]
+      rw [Array.foldl_empty]
+      rfl
     | inr h_disjoint =>
-      suffices h_ineq : min d.R q ≤ max d.L p by
-        rw [Array.extract_eq_empty_of_le ?_]
-        · rw[Array.foldl_empty]
-          rfl
-        · rw [st.a.size_toArray]
-          rw [Nat.two_mul st.m]
-          rw [Nat.add_min_add_left st.m (min d.R q) st.m]
-          rw [Nat.add_le_add_iff_left]
-          trans (min d.R q)
-          · omega
-          · assumption
-      trans d.R
-      · omega
-      · grw[h_disjoint]
-        omega
+      have h_ineq : min d.R q ≤ max d.L p := by omega
+      rw [Array.extract_eq_empty_of_le (by omega)]
+      rw [Array.foldl_empty]
+      rfl
 
   · -- all other cases: the intersection of the two intervals is non-empty and different from [L, R)
     -- (and we are surely not in a leaf node)
     have h_internal : j < 2^st.H := d.not_in_leaf p q (by grind) (by grind)
-    have h_0_lt_h := d.internal_0_lt_h h_internal
-
-    set C := (d.L+d.R)/2 with h_C
-    have hCL : C = d.L + 2 ^ (d.h - 1) := by
-      subst C
-      rw [d.h_R]
-      rw [← Nat.add_assoc d.L d.L (2 ^ d.h)]
-      rw [← Nat.mul_two d.L]
-      rw [← Nat.pow_pred_mul (by omega)]
-      rw [← Nat.add_mul d.L (2 ^ (d.h - 1)) 2]
-      rw [Nat.mul_div_left (d.L + 2 ^ (d.h - 1)) (by omega)]
-
-    have h_C_eq : C = 2^(d.h-1)*(2*d.k+1) := by
-      rw [hCL]
-      rw [d.h_L]
-      rw [← Nat.two_pow_pred_mul_two (by omega)]
-      grind
-
+    rw [← d.h_C]
     set dLeft := CoverageIntervalDefs.from_st n (2 * j) st (by omega) (by omega) with h_dL
     set dRight := CoverageIntervalDefs.from_st n (2 * j + 1) st (by omega) (by omega) with h_dR
-    suffices h_intervs :
-      (dLeft.L = d.L ∧ dLeft.R = C)
-      ∧ (dRight.L = C ∧ dRight.R = d.R)
-      by
 
-      -- conv_lhs simplifies only the left side of the = to remove the time information
-      -- (simplifying the right too breaks the proof that we made before adding the time information)
-      conv_lhs => simp
-      rw [query_aux_correctness α inst n (2*j) p q d.L C st (by omega) (by omega)]
-      rw [query_aux_correctness α inst n (2*j+1) p q C d.R st (by omega) (by omega)]
-      · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
+    -- conv_lhs simplifies only the left side of the = to remove the time information
+    -- (simplifying the right too breaks the proof that we made before adding the time information)
+    conv_lhs => simp
+    rw [query_aux_correctness α inst n (2*j) p q d.L d.C st (by omega) (by omega)
+      (by rw [← h_dL, d.Lj_eq_L2j dLeft h_internal]) (by rw [← h_dL, d.Cj_eq_R2j dLeft h_internal])]
+    rw [query_aux_correctness α inst n (2*j+1) p q d.C d.R st (by omega) (by omega)
+      (by rw [← h_dR, d.Cj_eq_L2jp1 dRight h_internal]) (by rw [← h_dR, d.Rj_eq_R2jp1 dRight h_internal])]
+    rw [← h_dL, ← h_dR]
+    rw [← d.Lj_eq_L2j dLeft h_internal, ← d.Cj_eq_R2j dLeft h_internal,
+      ← d.Cj_eq_L2jp1 dRight h_internal, ← d.Rj_eq_R2jp1 dRight h_internal]
 
-        have h_eq_logs : (2 * j + 1).log2 = (2 * j).log2 := by
-          rw [Nat.log2_eq_iff (by omega)]
-          constructor
-          · trans 2*j
-            · rw [← Nat.le_log2 (by omega)]
-            · omega
-          · rw [lt_iff_le_and_ne]
-            constructor
-            · rw [Nat.add_one_le_iff]
-              rw [Nat.add_one (2 * j).log2]
-              have hb: 1<2 := by omega
-              apply Nat.lt_pow_succ_log_self at hb
-              specialize hb (2*j)
-              rw [Nat.log2_eq_log_two]
-              assumption
-            · rw [Nat.pow_add_one']
-              by_contra a
-              have h_2div : 2 ∣ 2 * 2 ^ (2 * j).log2 := by omega
-              rw[← a] at h_2div
-              rw [Nat.dvd_add_right (by omega)] at h_2div
-              contradiction
+    -- splittare in 3 casi:
+    -- 1. p>=C (ovvero l'intersez tra l'intervallo query e la prima meta' del coverage interval e' vuota)
+    -- 2. q<=C (ovvero l'intersezione con la seconda meta' e' vuota)
+    -- 2. p < C < q, quindi si usa foldl combine
+    have h_Cmid : d.L < d.C ∧ d.C < d.R := d.internal_L_lt_C_lt_R h_internal
 
-        rw[h_eq_logs]
-        rw [Nat.log2_two_mul (by omega)]
-        rw[← d.h_l]
-        rw [Nat.sub_add_eq st.H d.l 1]
-        rw[← d.h_h]
-        rw [Nat.pow_add_one']
-        rw [Nat.sub_add_comm]
-        · rw [← Nat.mul_sub 2 j (2 ^ d.l)]
-          rw[← d.h_k]
-          rw [← Nat.mul_add_one (2 ^ (d.h - 1)) (2 * d.k)]
-          rw [← Nat.mul_assoc (2 ^ (d.h - 1)) 2 d.k]
-          rw [Nat.two_pow_pred_mul_two h_0_lt_h]
-          rw [← Nat.mul_add_one (2 ^ (d.h - 1)) (2 * d.k + 1)]
-          rw [Nat.add_assoc (2 * d.k) 1 1]
-          rw [show 1 + 1 = 2 from rfl]
-          rw [← Nat.mul_add_one 2 d.k]
-          rw [← Nat.mul_assoc (2 ^ (d.h - 1)) 2 (d.k + 1)]
-          rw [Nat.two_pow_pred_mul_two h_0_lt_h]
-          rw [Nat.mul_add_one (2 ^ d.h) d.k]
-          rw[← d.h_L, ← d.h_R, ← h_C_eq]
-
-          -- splittare in 3 casi:
-          -- 1. p>=C (ovvero l'intersez tra l'intervallo query e la prima meta' del coverage interval e' vuota)
-          -- 2. q<=C (ovvero l'intersezione con la seconda meta' e' vuota)
-          -- 2. p < C < q, quindi si usa foldl combine
-          have h_Cmid : d.L < C ∧ C < d.R := by omega
-
-          if h_pC : C ≤ p then
-            rw [Array.extract_eq_empty_of_le ?_]
-            · rw[Array.foldl_empty]
-              rw [one_mul]
-              have htmp: max C p = p := by omega
-              rw[htmp]
-              have htmp: max d.L p = p := by omega
-              rw[htmp]
-            · rw [st.a.size_toArray]
-              rw [Nat.two_mul st.m, st.h_m_pow2H]
-              rw [Nat.add_min_add_left (2^st.H) (min C q) (2^(st.H))]
-              rw [Nat.add_le_add_iff_left]
-              trans C
-              · omega
-              · omega
-          else if h_Cq : q ≤ C then
-            simp at h_pC
-            set fold1 := Array.foldl (fun a b ↦ a * b) 1 (st.a.toArray.extract (2^st.H + max d.L p) (2^st.H + min C q)) with h_f1
-            rw [Array.extract_eq_empty_of_le ?_]
-            · rw[Array.foldl_empty]
-              rw[mul_one]
-              subst fold1
-              have htmp: min C q = q := by omega
-              rw[htmp]
-              have htmp: min d.R q = q := by omega
-              rw[htmp]
-            · rw [st.a.size_toArray]
-              rw [Nat.two_mul st.m, st.h_m_pow2H]
-              rw [Nat.add_min_add_left (2^st.H) (min d.R q) (2^st.H)]
-              rw [Nat.add_le_add_iff_left]
-              trans C
-              · omega
-              · omega
-          else
-            simp at h_pC
-            simp at h_Cq
-            have htmp : min C q = C := by omega
-            rw[htmp]
-            have htmp : max C p = C := by omega
-            rw[htmp]
-            clear htmp
-            rw[foldl_combine]
-            rw [Nat.add_le_add_iff_left]
-            rw [Nat.add_le_add_iff_left]
-            constructor
-            · omega
-            · omega
-
-        · rw [Nat.mul_le_mul_left_iff (by omega)]
-          rw [d.h_l]
-          rw [← Nat.le_log2 (by omega)]
-
-      · exact h_intervs.right
-      · exact h_intervs.left
-
-
-    have hll : dLeft.L = d.L := by
-      rw[d.h_L, d.h_k, d.h_h, d.h_l]
-      rw[dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
-      rw [Nat.log2_two_mul (by omega)]
-      rw [Nat.pow_add_one']
-      rw [← Nat.mul_sub 2 j (2 ^ j.log2)]
-      rw [← Nat.mul_assoc (2 ^ (st.H - (j.log2 + 1))) 2 (j - 2 ^ j.log2)]
-      rw [← Nat.pow_add_one 2 (st.H - (j.log2 + 1))]
-      rw [← tsub_tsub_assoc ?_ (by omega)]
-      grind
-      rw [← Nat.log2_lt (by omega)] at h_internal
+    if h_pC : d.C ≤ p then
+      rw [Array.extract_eq_empty_of_le (by omega)]
+      rw [Array.foldl_empty]
+      rw [one_mul]
+      rw [show max d.C p = p from by omega]
+      rw [show max d.L p = p from by omega]
+    else if h_Cq : q ≤ d.C then
+      set fold1 := Array.foldl (fun a b ↦ a * b) 1 (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.C q)) with h_f1
+      rw [Array.extract_eq_empty_of_le (by omega)]
+      rw [Array.foldl_empty]
+      rw [mul_one]
+      subst fold1
+      rw [show min d.C q = q from by omega]
+      rw [show min d.R q = q from by omega]
+    else
+      rw [show min d.C q = d.C from by omega]
+      rw [show max d.C p = d.C from by omega]
+      rw [foldl_combine]
       omega
-
-    have hlr : dLeft.R = C := by
-      rw[hCL]
-      rw[dLeft.h_R]
-      rw[hll]
-      rw [Nat.add_right_inj]
-      rw[d.h_h, d.h_l]
-      rw[dLeft.h_h, dLeft.h_l]
-      simp
-      rw [Nat.log2_two_mul (by omega)]
-      grind
-
-    have hrl : dRight.L = dLeft.R := by
-      rw[dLeft.h_R, dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
-      rw[dRight.h_L, dRight.h_k, dRight.h_h, dRight.h_l]
-      rw[odd_log2 j (by omega)]
-      rw [← Nat.mul_add_one (2 ^ (st.H - (2 * j).log2)) (2 * j - 2 ^ (2 * j).log2)]
-      rw [← Nat.sub_add_comm ?_]
-      rw [← Nat.le_log2 (by omega)]
-
-    have hrr : dRight.R = d.R := by
-      rw[dRight.h_R, hrl, hlr, hCL, d.h_R]
-      --rw [Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ dRight.h)]
-      nth_rw 3 [← Nat.two_pow_pred_mul_two (by omega)]
-      rw [Nat.mul_two (2 ^ (d.h - 1))]
-      rw [← Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ (d.h - 1))]
-      simp
-      rw[d.h_h, d.h_l]
-      rw[dRight.h_h, dRight.h_l]
-      rw[odd_log2 j (by omega)]
-      rw [Nat.log2_two_mul (by omega)]
-      grind
-
-    constructor
-    · constructor
-      · exact hll
-      · exact hlr
-    · constructor
-      · rw[hrl, hlr]
-      · rw[hrr]
-
 
 #check Nat.lt_pow_succ_log_self
 #check Array.foldl_empty
@@ -327,10 +154,12 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
             (st.m + p) (Array.emptyWithCapacity ((min (st.m + q) st.a.toArray.size).sub (st.m + p)))
         from rfl]
     grind
-  · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
+  all_goals (
+    simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
     rw [show Nat.log2 1 = 0 from rfl]
     rw [show 2 ^ 0 = 1 from rfl]
     grind
+  )
 
 -- trivial cases for query_aux: the time taken is 1
 theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)

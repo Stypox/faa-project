@@ -91,101 +91,21 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   }
   all_goals have h2j2m : 2*j < 2*st.m := by omega
 
-  · --have h_internal : j < 2^st.H := d.not_in_leaf pos (pos+1) (by grind) (by grind)
-    --simp at h_disjoint
---
-    --have h2j12m : 2*j + 1 < 2*st.m := by {
-    --  rw [Nat.lt_iff_add_one_le] at h_internal; rw [Nat.lt_iff_add_one_le]
-    --  rw[← st.h_m_pow2H] at h_internal;
-    --  ring_nf; nth_rw 1 [← one_add_one_eq_two]; rw [← Nat.mul_two 1]
-    --  rw [← Nat.add_mul 1 j 2]; rw [Nat.add_comm 1 j]
-    --  gcongr
-    --}
-    --have h2j2m : 2*j < 2*st.m := by omega
-
-    have h_0_lt_h := d.internal_0_lt_h h_internal
-    set C := (d.L+d.R)/2 with h_C
-    -- deduplicare 'sta roba
-    have hCL : C = d.L + 2 ^ (d.h - 1) := by
-      subst C
-      rw [d.h_R]
-      rw [← Nat.add_assoc d.L d.L (2 ^ d.h)]
-      rw [← Nat.mul_two d.L]
-      rw [← Nat.pow_pred_mul (by omega)]
-      rw [← Nat.add_mul d.L (2 ^ (d.h - 1)) 2]
-      rw [Nat.mul_div_left (d.L + 2 ^ (d.h - 1)) (by omega)]
-
-    have h_C_eq : C = 2^(d.h-1)*(2*d.k+1) := by
-      rw [hCL]
-      rw [d.h_L]
-      rw [← Nat.two_pow_pred_mul_two (by omega)]
-      grind
-
+  · rw [← d.h_C]
     set dLeft := CoverageIntervalDefs.from_st n (2 * j) st (by omega) (by omega) with h_dL
     set dRight := CoverageIntervalDefs.from_st n (2 * j + 1) st (by omega) (by omega) with h_dR
 
-    -- deduplicare 'sta roba
-    have h_intervs :
-      (dLeft.L = d.L ∧ dLeft.R = C)
-      ∧ (dRight.L = C ∧ dRight.R = d.R) := by
-      have hll : dLeft.L = d.L := by
-        rw[d.h_L, d.h_k, d.h_h, d.h_l]
-        rw[dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
-        rw [Nat.log2_two_mul (by omega)]
-        rw [Nat.pow_add_one']
-        rw [← Nat.mul_sub 2 j (2 ^ j.log2)]
-        rw [← Nat.mul_assoc (2 ^ (st.H - (j.log2 + 1))) 2 (j - 2 ^ j.log2)]
-        rw [← Nat.pow_add_one 2 (st.H - (j.log2 + 1))]
-        rw [← tsub_tsub_assoc ?_ (by omega)]
-        grind
-        rw [← Nat.log2_lt (by omega)] at h_internal
-        omega
+    have h_intervs : (dLeft.L = d.L ∧ dLeft.R = d.C) ∧ (dRight.L = d.C ∧ dRight.R = d.R) := by
+      split_ands
+      · exact (d.Lj_eq_L2j dLeft h_internal).symm
+      · exact (d.Cj_eq_R2j dLeft h_internal).symm
+      · exact (d.Cj_eq_L2jp1 dRight h_internal).symm
+      · exact (d.Rj_eq_R2jp1 dRight h_internal).symm
 
-      have hlr : dLeft.R = C := by
-        rw[hCL]
-        rw[dLeft.h_R]
-        rw[hll]
-        rw [Nat.add_right_inj]
-        rw[d.h_h, d.h_l]
-        rw[dLeft.h_h, dLeft.h_l]
-        simp
-        rw [Nat.log2_two_mul (by omega)]
-        grind
-
-      have hrl : dRight.L = dLeft.R := by
-        rw[dLeft.h_R, dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
-        rw[dRight.h_L, dRight.h_k, dRight.h_h, dRight.h_l]
-        rw[odd_log2 j (by omega)]
-        rw [← Nat.mul_add_one (2 ^ (st.H - (2 * j).log2)) (2 * j - 2 ^ (2 * j).log2)]
-        rw [← Nat.sub_add_comm ?_]
-        rw [← Nat.le_log2 (by omega)]
-
-      have hrr : dRight.R = d.R := by
-        rw[dRight.h_R, hrl, hlr, hCL, d.h_R]
-        --rw [Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ dRight.h)]
-        nth_rw 3 [← Nat.two_pow_pred_mul_two (by omega)]
-        rw [Nat.mul_two (2 ^ (d.h - 1))]
-        rw [← Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ (d.h - 1))]
-        simp
-        rw[d.h_h, d.h_l]
-        rw[dRight.h_h, dRight.h_l]
-        rw[odd_log2 j (by omega)]
-        rw [Nat.log2_two_mul (by omega)]
-        grind
-
-      constructor
-      · constructor
-        · exact hll
-        · exact hlr
-      · constructor
-        · rw[hrl, hlr]
-        · rw[hrr]
-
-
-    have h_updateLeft := update_helper_correctness α inst n (2*j) x C val pos st
+    have h_updateLeft := update_helper_correctness α inst n (2*j) x d.C val pos st
       (by omega) (by omega) (by omega) b1
     simp [← h_dL] at h_updateLeft
-    rw[← h_x, ← h_y] at h_updateLeft
+    rw [← h_x, ← h_y] at h_updateLeft
     simp [h_intervs] at h_updateLeft
 
     have h_prop_left : st_prop_except_ancestors st.m (2 * j) b1 := by
@@ -200,9 +120,9 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
         assumption
       }) h_i_ub
     simp [h_prop_left] at h_updateLeft
-    set bLeft := (update_helper n st val pos (2 * j) d.L C (by omega) b1).ret with h_bLeft
+    set bLeft := (update_helper n st val pos (2 * j) d.L d.C (by omega) b1).ret with h_bLeft
 
-    have h_updateRight := update_helper_correctness α inst n (2*j+1) C y val pos st
+    have h_updateRight := update_helper_correctness α inst n (2*j+1) d.C y val pos st
       (by omega) (by omega) (by omega) bLeft
     simp [← h_dR] at h_updateRight
     rw[← h_x, ← h_y] at h_updateRight
@@ -225,7 +145,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       }) h_i_ub
       exact roba
     simp [h_prop_right] at h_updateRight
-    set bRight := (update_helper n st val pos (2 * j + 1) C d.R (by omega) bLeft).ret with h_bRight
+    set bRight := (update_helper n st val pos (2 * j + 1) d.C d.R (by omega) bLeft).ret with h_bRight
 
     constructor
     · unfold st_prop_except_ancestors
@@ -277,7 +197,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       · rw[h] at h_internal
         rw [add_lt_iff_neg_right st.m] at h_internal
         contradiction
-      · by_cases h_C_where : C ≤ pos
+      · by_cases h_C_where : d.C ≤ pos
         · apply h_updateRight.right at h_C_where
           simp [h_disjoint] at h_C_where
           simp [Vector.get] at h_C_where
@@ -287,7 +207,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
           unfold update_helper
           simp only [TimeM.tick]
           simp [h2j12m, h_C_where]
-          have h_tmp : ¬pos = C := by omega
+          have h_tmp : ¬pos = d.C := by omega
           simp [h_tmp]
           simp [h_disjoint] at h_updateLeft
           apply h_updateLeft.right at h_C_where

@@ -1,6 +1,7 @@
 import Mathlib.Tactic
 import Projects.Project1.SegmentTree
 import Projects.Project1.FoldlHelpers
+import Projects.Project1.Helpers
 
 set_option autoImplicit false
 
@@ -13,11 +14,13 @@ structure CoverageIntervalDefs (j H : ℕ) where
   h : ℕ
   L : ℕ
   R : ℕ
+  C : ℕ
   h_l : l = Nat.log2 j
   h_k : k = j - 2^l
   h_h : h = H - l
   h_L : L = 2^h * k
   h_R : R = L + 2^h
+  h_C : C = (L + R) / 2
 
 def CoverageIntervalDefs.from_assumptions (j H : ℕ) (h0j : 0 < j) (hj2m: j < 2*2^H) :
   CoverageIntervalDefs j H := {
@@ -28,17 +31,23 @@ def CoverageIntervalDefs.from_assumptions (j H : ℕ) (h0j : 0 < j) (hj2m: j < 2
     h := H - Nat.log2 j,
     L := 2^(H - Nat.log2 j) * (j - 2^(Nat.log2 j)),
     R := 2^(H - Nat.log2 j) * (j - 2^(Nat.log2 j)) + 2^(H - Nat.log2 j),
+    C := (2^(H - Nat.log2 j) * (j - 2^(Nat.log2 j)) + (2^(H - Nat.log2 j) * (j - 2^(Nat.log2 j)) + 2^(H - Nat.log2 j))) / 2
     h_l := rfl,
     h_k := rfl,
     h_h := rfl,
     h_L := rfl,
-    h_R := rfl
+    h_R := rfl,
+    h_C := rfl,
   }
 
 def CoverageIntervalDefs.from_st {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n) (h0j : 0 < j) (hj2m: j < 2*st.m) :
   CoverageIntervalDefs j st.H := CoverageIntervalDefs.from_assumptions j st.H h0j (by simp [← st.h_m_pow2H, hj2m])
 
 lemma CoverageIntervalDefs.j_neq_0 {j H : ℕ} (d : CoverageIntervalDefs j H) : j ≠ 0 := by
+  have h0j := d.h0j
+  omega
+
+lemma CoverageIntervalDefs.j_geq_1 {j H : ℕ} (d : CoverageIntervalDefs j H) : j ≥ 1 := by
   have h0j := d.h0j
   omega
 
@@ -147,6 +156,95 @@ lemma CoverageIntervalDefs.internal_0_lt_h {j H : ℕ} (d : CoverageIntervalDefs
   rw [Nat.sub_pos_iff_lt]
   exact d.internal_l_lt_H h_internal
 
+lemma CoverageIntervalDefs.internal_L_lt_C_lt_R {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) :
+  d.L < d.C ∧ d.C < d.R
+:= by
+  rw [d.h_C, d.h_R]
+  suffices (2^d.h ≥ 2) by omega
+  rw [show (2 ^ d.h ≥ 2) = (2 ≤ 2 ^ d.h) from rfl]
+  rw [← Nat.clog_le_iff_le_pow (by omega)]
+  rw [Nat.clog_eq_one (by omega) (by omega)]
+  exact d.internal_0_lt_h h_internal
+
+lemma CoverageIntervalDefs.C_eq_L_plus_half {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : d.C = d.L + 2 ^ (d.h - 1) := by
+  rw [d.h_C, d.h_R]
+  rw [← Nat.add_assoc d.L d.L (2 ^ d.h)]
+  rw [← Nat.mul_two d.L]
+  rw [← Nat.pow_pred_mul (d.internal_0_lt_h h_internal)]
+  rw [← Nat.add_mul d.L (2 ^ (d.h - 1)) 2]
+  rw [Nat.mul_div_left (d.L + 2 ^ (d.h - 1)) (by omega)]
+
+lemma CoverageIntervalDefs.Lj_eq_L2j {j H : ℕ} (d : CoverageIntervalDefs j H)
+  (dLeft : CoverageIntervalDefs (2*j) H) (h_internal : 2^H > j) :
+  d.L = dLeft.L
+:= by
+  rw [d.h_L, dLeft.h_L, d.h_k, dLeft.h_k, d.h_h, dLeft.h_h, d.h_l, dLeft.h_l]
+  rw [Nat.mul_comm 2 j]
+  rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
+  rw [Nat.log_mul_base (by omega) d.j_neq_0]
+  rw [Nat.sub_add_eq H (Nat.log 2 j) 1]
+  nth_rw 1 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H'' h_internal)]
+  rw [Nat.mul_assoc (2 ^ (H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j)]
+  rw [Nat.mul_right_inj (by simp)]
+  omega
+
+lemma CoverageIntervalDefs.Cj_eq_R2j {j H : ℕ} (d : CoverageIntervalDefs j H)
+  (dLeft : CoverageIntervalDefs (2*j) H) (h_internal : 2^H > j) :
+  d.C = dLeft.R
+:= by
+  rw [d.C_eq_L_plus_half h_internal, dLeft.h_R, d.Lj_eq_L2j dLeft h_internal, d.h_h, dLeft.h_h, d.h_l, dLeft.h_l]
+  rw [Nat.add_right_inj]
+  rw [Nat.log2_two_mul d.j_neq_0]
+  grind
+
+lemma CoverageIntervalDefs.Rj_eq_R2jp1 {j H : ℕ} (d : CoverageIntervalDefs j H)
+  (dRight : CoverageIntervalDefs (2*j+1) H) (h_internal : 2^H > j) :
+  d.R = dRight.R
+:= by
+  rw [d.h_R, dRight.h_R, d.h_L, dRight.h_L, d.h_k, dRight.h_k, d.h_h, dRight.h_h, d.h_l, dRight.h_l]
+  rw [Nat.mul_comm 2 j]
+  rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
+  rw [Nat.log_of_one_lt_of_le (n:=j*2+1) (by omega) (by have := d.j_neq_0; omega)]
+  rw [Nat.succ_div_of_not_dvd (by omega)]
+  simp
+  rw [←mul_add_one, ←mul_add_one]
+  nth_rw 1 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H'' h_internal)]
+  rw [Nat.sub_add_eq H (Nat.log 2 j) 1]
+  rw [Nat.mul_assoc (2 ^ (H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j + 1)]
+  rw [Nat.mul_right_inj (by simp)]
+  rw [Nat.pow_add_one 2 (Nat.log 2 j)]
+  rw [Nat.mul_add_one 2 (j - 2 ^ Nat.log 2 j)]
+  rw [Nat.mul_sub 2 j (2 ^ Nat.log 2 j)]
+  have : 2 ^ Nat.log 2 j ≤ j := (Nat.le_log2 d.j_neq_0).mp (by rw [← Nat.log2_eq_log_two])
+  rw [← Nat.sub_add_comm (by omega)]
+  rw [← Nat.sub_add_comm (by omega)]
+  omega
+
+lemma CoverageIntervalDefs.Cj_eq_L2jp1 {j H : ℕ} (d : CoverageIntervalDefs j H)
+  (dRight : CoverageIntervalDefs (2*j+1) H) (h_internal : 2^H > j) :
+  d.C = dRight.L
+:= by
+  have Rj_eq_R2jp1 := Nat.eq_sub_of_add_eq (d.h_R.symm.trans (d.Rj_eq_R2jp1 dRight h_internal))
+  rw [d.C_eq_L_plus_half h_internal, Rj_eq_R2jp1, dRight.h_R, dRight.h_L, dRight.h_k, d.h_h, dRight.h_h, d.h_l, dRight.h_l]
+  rw [odd_log2 j d.j_geq_1]
+  rw [Nat.log2_two_mul d.j_neq_0]
+  rw [← Nat.mul_add_one]
+  rw [← Nat.pow_pred_mul (d.internal_l_lt_H' h_internal)]
+  rw [Nat.sub_add_eq H j.log2 1]
+  rw [← mul_tsub (2 ^ (H - j.log2 - 1)) (2 * j + 1 - 2 ^ (j.log2 + 1) + 1) 2]
+  rw [← Nat.mul_add_one (2 ^ (H - j.log2 - 1)) (2 * j + 1 - 2 ^ (j.log2 + 1) + 1 - 2)]
+  suffices 2*j ≥ 2^(j.log2 + 1) by rw [← Nat.sub_add_comm (by omega)]; simp
+  simp [Nat.pow_add_one']
+  rw [← Nat.le_log2 d.j_neq_0]
+
+lemma CoverageIntervalDefs.R2j_eq_L2jp1 {j H : ℕ} (dLeft : CoverageIntervalDefs (2*j) H)
+  (dRight : CoverageIntervalDefs (2*j+1) H) (h_internal : 2^H > j) :
+  dLeft.R = dRight.L
+:= by
+  let d := CoverageIntervalDefs.from_assumptions j H (have := dLeft.h0j; by omega) (by omega)
+  rw [← d.Cj_eq_R2j dLeft h_internal, ← d.Cj_eq_L2jp1 dRight h_internal]
+
+
 -- helper lemma
 lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
@@ -171,90 +269,18 @@ lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : S
       · omega
 
   · simp at h_leaf
-    rw [st.h_children j h0j (by simp [st.h_m_pow2H]; omega)]   -- in this case a[j] is an internal node of the tree
-    rw [st.coverage_interval (h0j:=by omega)]
-    rw [st.coverage_interval (h0j:=by omega)]
-    simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
+    have h_leaf' : j < st.m := by simpa [st.h_m_pow2H]
+    rw [st.h_children j h0j h_leaf']   -- in this case a[j] is an internal node of the tree
+    rw [st.coverage_interval (h0j := by omega)]
+    rw [st.coverage_interval (h0j := by omega)]
 
-    set aL := 2^st.H + d.L with h_aL
-    set aC := 2^st.H + 2^(d.h-1)*(2*d.k+1) with h_aC  -- = (aL + aR)/2
-    set aR := 2^st.H + d.R with h_aR
+    set dLeft := CoverageIntervalDefs.from_st n (2 * j) st (by omega) (by omega) with h_dL
+    set dRight := CoverageIntervalDefs.from_st n (2 * j + 1) st (by omega) (by omega) with h_dR
+    rw [← st.h_m_pow2H, ← d.Lj_eq_L2j dLeft h_leaf, ← d.Cj_eq_R2j dLeft h_leaf,
+      ← d.Cj_eq_L2jp1 dRight h_leaf, ← d.Rj_eq_R2jp1 dRight h_leaf]
 
-    rw [show (2^st.H + 2 ^ (st.H - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2)) = aL by {
-      rw [h_aL, d.h_L, d.h_k, d.h_h, d.h_l]
-      simp
-      rw [Nat.mul_comm 2 j]
-      rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-      rw [Nat.log_mul_base (by omega) (by omega)]
-      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
-      nth_rw 3 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H'' h_leaf)]
-      rw [Nat.mul_assoc (2 ^ (st.H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j)]
-      rw [Nat.mul_right_inj (by simp)]
-      omega
-    }]
-    rw [show (2^st.H + (2 ^ (st.H - (2 * j).log2) * (2 * j - 2 ^ (2 * j).log2) + 2 ^ (st.H - (2 * j).log2))) = aC by {
-      rw [h_aC, d.h_k, d.h_h, d.h_l]
-      simp
-      rw [Nat.mul_comm 2 j]
-      rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-      rw [Nat.log_mul_base (by omega) (by omega)]
-      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
-      rw [← Nat.mul_add_one]
-      rw [Nat.mul_right_inj (by simp)]
-      omega
-    }]
-    rw [show (2^st.H + 2 ^ (st.H - (2 * j + 1).log2) * (2 * j + 1 - 2 ^ (2 * j + 1).log2)) = aC by {
-      rw [h_aC, d.h_k, d.h_h, d.h_l]
-      simp
-      rw [Nat.mul_comm 2 j]
-      rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
-      rw [Nat.succ_div_of_not_dvd (by omega)]
-      simp
-      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
-      rw [Nat.mul_right_inj (by simp)]
-      rw [Nat.pow_add_one 2 (Nat.log 2 j)]
-      rw [Nat.mul_sub 2 j (2 ^ Nat.log 2 j)]
-      rw [tsub_add_eq_add_tsub (by simp; refine (Nat.le_log2 ?_).mp ?_; omega; rw [← Nat.log2_eq_log_two];)]
-      omega
-    }]
-    rw [show (2^st.H + (2 ^ (st.H - (2 * j + 1).log2) * (2 * j + 1 - 2 ^ (2 * j + 1).log2) + 2 ^ (st.H - (2 * j + 1).log2))) = aR by {
-      rw [h_aR, d.h_R, d.h_L, d.h_k, d.h_h, d.h_l]
-      simp
-      rw [Nat.mul_comm 2 j]
-      rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-      rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
-      rw [Nat.succ_div_of_not_dvd (by omega)]
-      simp
-      rw [←mul_add_one, ←mul_add_one]
-      nth_rw 3 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H'' h_leaf)]
-      rw [Nat.sub_add_eq st.H (Nat.log 2 j) 1]
-      rw [Nat.mul_assoc (2 ^ (st.H - Nat.log 2 j - 1)) 2 (j - 2 ^ Nat.log 2 j + 1)]
-      rw [Nat.mul_right_inj (by simp)]
-      rw [Nat.pow_add_one 2 (Nat.log 2 j)]
-      rw [Nat.mul_add_one 2 (j - 2 ^ Nat.log 2 j)]
-      rw [Nat.mul_sub 2 j (2 ^ Nat.log 2 j)]
-      rw [← Nat.sub_add_comm (by grw [show 2 ^ Nat.log 2 j * 2 ≤ 2 * j by {rw [Nat.mul_comm 2 j]; simp; refine (Nat.le_log2 ?_).mp ?_; omega; rw [← Nat.log2_eq_log_two];}]; omega)]
-      rw [← Nat.sub_add_comm (by simp; refine (Nat.le_log2 ?_).mp ?_; omega; rw [← Nat.log2_eq_log_two];)]
-      omega
-    }]
-
-    apply foldl_combine α (2*st.m) aL aC aR st.a ⟨?_, ?_⟩
-    · -- aL <= aC
-      rw [h_aL, h_aC, d.h_L, d.h_k, d.h_h, d.h_l]
-      simp
-      nth_rw 1 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H' h_leaf)]
-      rw [Nat.mul_assoc (2 ^ (st.H - j.log2 - 1)) 2 (j - 2 ^ j.log2)]
-      rw [Nat.mul_le_mul_left_iff (by simp)]
-      omega
-    · -- aC <= aR
-      rw [h_aC, h_aR, d.h_R, d.h_L, d.h_k, d.h_h, d.h_l]
-      simp
-      rw [← Nat.mul_add_one (2 ^ (st.H - j.log2)) (j - 2 ^ j.log2)]
-      nth_rw 3 [← Nat.pow_pred_mul (by exact d.internal_l_lt_H' h_leaf)]
-      rw [Nat.mul_assoc (2 ^ (st.H - j.log2 - 1)) 2 (j - 2 ^ j.log2 + 1)]
-      rw [Nat.mul_le_mul_left_iff (by simp)]
-      omega
+    have h_Cmid : d.L < d.C ∧ d.C < d.R := d.internal_L_lt_C_lt_R h_leaf
+    exact foldl_combine α (2*st.m) (st.m + d.L) (st.m + d.C) (st.m + d.R) st.a ⟨by omega, by omega⟩
 
 lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTree α n)
   (j : ℕ) (h_j0 : j > 0) (h_j2m : j < 2 * st.m) :
@@ -265,74 +291,3 @@ lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTr
   rw [← st.h_m_pow2H]
   grw [Nat.pow_log_le_self 2 (x:=j) (by omega)]
   omega
-
-
-lemma odd_log2' (i : ℕ) (h_pos: 1 ≤ i) : Nat.log 2 (2*i + 1) = Nat.log 2 (2*i) := by
-  rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
-  rw [Nat.succ_div_of_not_dvd (by omega)]
-  rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
-
-lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
-  rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-  exact odd_log2' i h_pos
-
-lemma log_sublinear (n : ℕ) : Nat.log 2 (n - 1) ≤ n := by
-  if hn : n > 1 then {
-    have a := Nat.log_lt_self 2 (x:=(n - 1)) (by omega)
-    grw [a]
-    simp
-  } else {
-    simp_all
-  }
-
-
-
-
-lemma succ_div_even_eq_div_even (a b: ℕ) :  (2 * a + 1) / (2 * b) = (2 * a) / (2 * b) := by
-  rw [Nat.succ_div_of_not_dvd ?_]
-  by_contra h_contra
-  have h22b : 2 ∣ 2*b := by omega
-  grw[← h22b] at h_contra
-  rw [Nat.dvd_add_right (by omega)] at h_contra
-  contradiction
-
-
-lemma succ_div_even_eq_div_even_pow2 (j: ℕ) :  ∀ g > 0, (2 * j + 1) / 2 ^ g = (2 * j) / 2 ^ g := by
-  intro g g0
-  rw [← Nat.two_pow_pred_mul_two (by omega)]
-  rw [Nat.mul_comm (2 ^ (g - 1)) 2]
-  exact succ_div_even_eq_div_even j (2^(g-1))
-
-  --rw [Nat.div_eq_iff (Nat.two_pow_pos g)]
-  --constructor
-  --· rw [Nat.div_mul_self_eq_mod_sub_self]
-  --  trans (2*j)
-  --  · grind
-  --  · omega
-  --· rw [Nat.div_mul_self_eq_mod_sub_self]
-  --  rw [← Nat.sub_add_comm (by {grw[Nat.mod_le]})]
-  --  rw [Nat.sub_sub (2 * j + 2 ^ g) (2 * j % 2 ^ g) 1]
-  --  rw [Nat.add_sub_assoc (by omega) (2 * j)]
-  --  simp
-  --  rw [Nat.le_sub_iff_add_le (by omega)]
-  --  rw [Nat.one_add_le_iff]
-  --  by_contra h_contra
-  --  simp at h_contra
-  --  rw [Nat.le_add_one_iff] at h_contra
-  --  cases h_contra <;> expose_names
-  --  ·
-  --    have h1 : 2 * j % 2 ^ g < 2^g := by omega
-  --    grw[← h] at h1
-  --    simp_all
-  --  ·
-  --    have h : (2 ^ g) % 2 = (2 * j % 2 ^ g + 1) % 2 := by omega
-  --    --simp at h
-  --    rw [Nat.pow_mod 2 g 2] at h
-  --    rw [show 2 % 2 = 0 from rfl] at h
-  --    rw [Nat.zero_pow (by omega)] at h
-  --    rw [show 0 % 2 = 0 from rfl] at h
-  --    rw [Nat.add_mod (2 * j % 2 ^ g) 1 2] at h
-  --    rw [show 1 % 2 = 1 from rfl] at h
-  --    rw [Nat.mod_mod_of_dvd (2 * j) (by omega)] at h
-  --    rw [Nat.mul_mod_right 2 j] at h
-  --    simp at h
