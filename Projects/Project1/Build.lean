@@ -79,7 +79,7 @@ def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)   
         }
       ⟩
 
-structure mHstruct (n : ℕ) where    -- helper structure to store:
+structure mHstruct (n : ℕ) where    -- helper structure that stores:
   m : ℕ                               -- the number m of leaves of the tree (after augmentation)
   H : ℕ                               -- and the height H of the tree, with the leaves having height h=0 and the root height h=H
   proofmH : m = 2^H                 -- the segment tree is a complete binary tree, with the number of leaves being a power of 2, m-1 "real" internal nodes that have 2 children each, and one "fake" node in position 0
