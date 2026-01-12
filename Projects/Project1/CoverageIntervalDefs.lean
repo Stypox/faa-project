@@ -203,7 +203,7 @@ lemma CoverageIntervalDefs.R2j_eq_L2jp1 {j H : ℕ} (dLeft : CoverageIntervalDef
 := by
   rw [dLeft.h_R, dLeft.h_L, dLeft.h_k, dLeft.h_h, dLeft.h_l]
   rw [dRight.h_L, dRight.h_k, dRight.h_h, dRight.h_l]
-  rw [odd_log2 j (have := dLeft.j_geq_1; by omega)]
+  rw [odd_log2 j]
   rw [← Nat.mul_add_one (2 ^ (H - (2 * j).log2)) (2 * j - 2 ^ (2 * j).log2)]
   rw [← Nat.sub_add_comm ?_]
   rw [← Nat.le_log2 dLeft.j_neq_0]
@@ -220,7 +220,7 @@ lemma CoverageIntervalDefs.Rj_eq_R2jp1 {j H : ℕ} (d : CoverageIntervalDefs j H
   simp
   rw[d.h_h, d.h_l]
   rw[dRight.h_h, dRight.h_l]
-  rw[odd_log2 j d.j_geq_1]
+  rw[odd_log2 j]
   rw [Nat.log2_two_mul d.j_neq_0]
   grind
 

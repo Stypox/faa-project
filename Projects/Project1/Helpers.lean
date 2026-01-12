@@ -3,14 +3,19 @@ import Mathlib.Tactic
 set_option autoImplicit false
 
 
-lemma odd_log2' (i : ℕ) (h_pos: 1 ≤ i) : Nat.log 2 (2*i + 1) = Nat.log 2 (2*i) := by
-  rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
-  rw [Nat.succ_div_of_not_dvd (by omega)]
-  rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
+lemma odd_log2' (i : ℕ) : Nat.log 2 (2*i + 1) = Nat.log 2 (2*i) := by
+  if h_pos : 1 ≤ i then {
+    rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
+    rw [Nat.succ_div_of_not_dvd (by omega)]
+    rw [← Nat.log_of_one_lt_of_le (by omega) (by omega)]
+  } else {
+    rw [show i = 0 from by omega]
+    simp
+  }
 
-lemma odd_log2 (i : ℕ) (h_pos: 1 ≤ i) : (2*i + 1).log2 = (2*i).log2 := by
+lemma odd_log2 (i : ℕ) : (2*i + 1).log2 = (2*i).log2 := by
   rw [Nat.log2_eq_log_two, Nat.log2_eq_log_two]
-  exact odd_log2' i h_pos
+  exact odd_log2' i
 
 lemma log_sublinear (n : ℕ) : Nat.log 2 (n - 1) ≤ n := by
   if hn : n > 1 then {

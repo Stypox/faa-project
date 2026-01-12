@@ -321,7 +321,6 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
       grind
     grw [h_left, h_right]
     rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
-    simp
     omega
   } else {
     have h_left : (update_helper n st x p (2 * j) L C (by omega) b).time = 1 := by
@@ -330,9 +329,8 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
       grind
     have h_right := update_helper_time α inst n st x p (2 * j + 1) C R (by omega) (update_helper n st x p (2 * j) L C (by omega) b).ret
     grw [h_left, h_right]
-    rw [odd_log2' j (by omega)]
+    rw [odd_log2' j]
     rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
-    simp
     omega
   }
 

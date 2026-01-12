@@ -180,7 +180,7 @@ theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st 
       rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
       simp
       rw [Nat.mul_sub 2, Nat.mul_sub 2]
-      rw [odd_log2' j (by omega)]
+      rw [odd_log2' j]
       rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
       simp
       omega
@@ -199,7 +199,7 @@ theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st 
       rw [Nat.log_of_one_lt_of_le (by omega) (by omega)]
       simp
       rw [Nat.mul_sub 2, Nat.mul_sub 2]
-      rw [odd_log2' j (by omega)]
+      rw [odd_log2' j]
       rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
       simp
       omega
@@ -228,14 +228,14 @@ theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree
     have h_left := query_aux_time_out_sub_disjoint α inst n st p q (2 * j) L C (by omega) (by omega)
     have h_right := query_aux_time α inst n st p q (2 * j + 1) C R (by omega)
     grw [h_left, Nat.add_left_comm, Nat.add_comm, h_right]
-    rw [odd_log2' j (by omega)]
+    rw [odd_log2' j]
     rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
     omega
   } else {
     have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
     have h_right := query_aux_time_semiinterval α inst n st p q (2 * j + 1) C R (by omega) (by omega)
     grw [h_left, Nat.add_left_comm, h_right]
-    rw [odd_log2' j (by omega)]
+    rw [odd_log2' j]
     rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
     ring_nf
     omega

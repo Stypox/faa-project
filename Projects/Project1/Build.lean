@@ -159,7 +159,6 @@ lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.l
       rw [show 2 * r - 1 = 2 * (r - 1) + 1 from by omega]
       symm
       apply odd_log2'
-      omega
     } else {
       rw [Nat.succ_div_of_dvd (by grind)]
       simp
@@ -170,7 +169,6 @@ lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.l
       have ⟨r', hn'r'⟩ := h_n'_even
       rw [hn'r', ← Nat.two_mul r']
       apply odd_log2'
-      omega
     }
   } else {
     have hn2 : n = 2 := by omega
@@ -186,24 +184,15 @@ theorem compute_m_H_time (n : ℕ) : (compute_m_H n).time ≤ Nat.log 2 (n-1) + 
   }
 
 theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
-  : (build_helper m j xs).time ≤ 2*m-j+1      -- the time for build_helper is linear in 2m-j = the number of elements of the segment tree that we want to build (in reverse order):
+  : (build_helper m j xs).time = 2*m-j+1      -- the time for build_helper is linear in 2m-j = the number of elements of the segment tree that we want to build (in reverse order):
 := by                                         -- in the trivial case with j≥2m it takes O(1) time,
   unfold build_helper                         -- in all recursive cases, it takes 2m-j time for the recursive call, plus 1 to append the new element
   split_ifs with h2m h0 h_jm <;> simp
-  · have h_rec := build_helper_time m (j+1) xs
-    simp_all
-    rw [Nat.sub_one_add_one (by omega)] at h_rec
-    assumption
-  · have h_rec := build_helper_time m (j+1) xs
-    simp_all
-    rw [tsub_add_eq_tsub_tsub (2 * m) j 1] at h_rec
-    rw [Nat.sub_one_add_one (by omega)] at h_rec
-    assumption
-  · have h_rec := build_helper_time m (j+1) xs
-    simp_all
-    rw [tsub_add_eq_tsub_tsub (2 * m) j 1] at h_rec
-    rw [Nat.sub_one_add_one (by omega)] at h_rec
-    assumption
+  · omega
+  all_goals (
+    have h_rec := build_helper_time m (j+1) xs
+    omega
+  )
 
 theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) :
   (build α inst n xs).time ≤ 8 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x(2n-1)+1 + 2x(2n-1))
