@@ -135,24 +135,6 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
     rw[← htmp]
     suffices h_arr_estr : (st.a.toArray.extract (st.m + p) (st.m + min st.m q)) = (st.a.toArray.extract (st.m + p) (st.m + q)) by
       rw[h_arr_estr]
-    rw [← Nat.add_min_add_left st.m st.m q]
-    rw [← Nat.two_mul st.m]
-    have h_2m_s : 2*st.m = st.a.toArray.size := by grind
-    nth_rw 2 [h_2m_s]
-    rw [show
-        st.a.toArray.extract (st.m + p) (min st.a.toArray.size (st.m + q)) =
-          Array.extract.loop st.a.toArray
-            ((min (min st.a.toArray.size (st.m + q)) st.a.toArray.size).sub (st.m + p)) (st.m + p)
-            (Array.emptyWithCapacity
-              ((min (min st.a.toArray.size (st.m + q)) st.a.toArray.size).sub (st.m + p)))
-        from rfl]
-    nth_rw 1 [Nat.min_right_comm st.a.toArray.size (st.m + q) st.a.toArray.size]
-    rw [Nat.min_self st.a.toArray.size]
-    rw [show
-        st.a.toArray.extract (st.m + p) (st.m + q) =
-          Array.extract.loop st.a.toArray ((min (st.m + q) st.a.toArray.size).sub (st.m + p))
-            (st.m + p) (Array.emptyWithCapacity ((min (st.m + q) st.a.toArray.size).sub (st.m + p)))
-        from rfl]
     grind
   all_goals (
     simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
