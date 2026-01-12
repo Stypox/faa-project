@@ -279,3 +279,13 @@ lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTr
   rw [← st.h_m_pow2H]
   grw [Nat.pow_log_le_self 2 (x:=j) (by omega)]
   omega
+
+
+lemma SegmentTree.internal_H_geq_log2jp1 {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTree α n)
+  (j : ℕ) (h_j0 : j > 0) (h_internal : j < st.m) : st.H ≥ (Nat.log 2 j + 1) := by
+    rw [show (st.H ≥ Nat.log 2 j + 1) = (Nat.log 2 j + 1 ≤ st.H) from rfl]
+    rw [Nat.add_one_le_iff]
+    apply (Nat.pow_lt_pow_iff_right (a:=2) (by omega)).mp
+    rw [← st.h_m_pow2H]
+    grw [Nat.pow_log_le_self 2 (x:=j) (by omega)]
+    omega

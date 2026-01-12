@@ -294,9 +294,7 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
   set C := ((L + R) / 2) with h_C
   have h_H_gt_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
   have h_internal : j < st.m := by omega
-  have h_H_geq_log2jp1 : st.H ≥ (Nat.log 2 j + 1) := by{
-    sorry
-  }
+  have h_H_geq_log2jp1 := st.internal_H_geq_log2jp1 j h_j0 h_internal
 
   if h_pC : p < C then {
     have h_left := update_helper_time α inst n st x p (2 * j) L C (by omega) b
@@ -352,7 +350,6 @@ theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α
         } else {
           simp_all
         }
-      --nth_rw 2 [show 2 = 1 + 1 from rfl]
       rw [Nat.add_comm]
       rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
       rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
