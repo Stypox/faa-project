@@ -9,7 +9,7 @@ structure SegmentTree (α : Type*) [Monoid α] (n : ℕ) where
   -- TODO maybe store original vector
   a : Vector α (2*m)
 
-  -- assumptions
+  -- assumptions that must hold for any SegmentTree
   h_m0 : m > 0
   h_mn : m ≥ n
   h_m2n : m = 1 ∨ m < n * 2 - 1

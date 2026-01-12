@@ -7,20 +7,25 @@ import Projects.Project1.FoldlHelpers
 set_option autoImplicit false
 
 
+-- helper structure used in build operation:
+-- stores in reverse order the last (2*m-j) elements of segment tree vector (= inteval [j, 2m) of st.a),
+-- and a proof that they all satisfy the h_children property of the segment tree (except for the leaves)
 structure BuildHelperStruct (α : Type) [Monoid α] (m j : ℕ) where
   a : Vector α (2*m - j)
   proof (i : ℕ) (h_i_lb : i ≥ j) (h_i0 : i > 0) (h_i_ub : i < m) :
     a.get ⟨2*m-1 - i, by omega⟩ = a.get ⟨2*m-1 - 2*i, by omega⟩ * a.get ⟨2*m-1 - (2*i+1), by omega⟩
+
 
 def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)   -- builds the vector that stores the nodes of the tree, but in reverse order
     : TimeM (BuildHelperStruct α m j) := do
   if h2m : j ≥ 2*m then               -- base case: we start with an empty vector
     ✓ ⟨⟨#[], (by simp_all)⟩, by grind⟩ -- we create an empty array, which is O(1)
 
-  else                                -- recursive case
-    let ⟨a, proof⟩ ← build_helper m (j+1) xs
+  else                                        -- recursive case:
+    let ⟨a, proof⟩ ← build_helper m (j+1) xs      -- first we build "the last 2m-j-1 elements of the segment tree in reverse order" (= interval [j+1, 2m) of st.a),
+                                                  -- then we compute the element j and append it to the vector, thus obtaining "the last 2m-j elements of the segment tree in reverse order" (= interval [j, 2m))
 
-    if h0: j = 0 then                 -- "fake node" of index 0: it's not part of the tree but we still add it to the vector,
+    if h0: j = 0 then                 -- "fake node" of index 0: it's not part of the tree but we still add it to the vector (so that the tree has root in positon 1, the internal nodes are those with j < m, and the leaves are those with m ≤ j < 2*m),
                                       -- the whole tree was already built by the recursive call
       ✓ ⟨ -- we are doing a single push operation on the array, which is O(1)
 
@@ -35,12 +40,13 @@ def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)   
           assumption
         }
       ⟩
-    else if h_jm : j ≥ m then         -- leaf of the tree
+    else if h_jm : j ≥ m then         -- leaf of the tree: we append to the vector a the element from the original vector xs (which has index j-m in the original vector)
       ✓ ⟨ -- we are doing a single push operation on the array, which is O(1)
         (a.push xs[j-m]).cast (by omega), -- ...
         by omega -- trivial by default, the quantifiers are all empty
       ⟩
-    else                              -- internal node of the tree
+    else                              -- internal node of the tree: we build the node j as the product of its two children: node[2j] and node[2j+1];
+                                      -- being the vector a in reverse order, the children are stored in position 2m-1 - 2j and 2m-1 - (2j+1)
       have h_2j2_le_2m : 2*j + 2 ≤ 2*m := by
         simp_all
         rw [Nat.lt_iff_add_one_le] at h_jm
@@ -67,14 +73,14 @@ def build_helper {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)   
         }
       ⟩
 
-structure mHstruct (n : ℕ) where
-  m : ℕ
-  H : ℕ
-  proofmH : m = 2^H
-  proofmn : n ≤ m
+structure mHstruct (n : ℕ) where    -- helper structure to store:
+  m : ℕ                               -- the number m of leaves of the tree (after augmentation)
+  H : ℕ                               -- and the height H of the tree, with the leaves having height h=0 and the root height h=H
+  proofmH : m = 2^H                 -- the segment tree is a complete binary tree, with the number of leaves being a power of 2, m-1 "real" internal nodes that have 2 children each, and one "fake" node in position 0
+  proofmn : n ≤ m                   -- m is chosen as the smallest power of 2 that is ≥ n, and in case n≠m the leaves (= elements from original array) are augmented with m-n copies of the identity element of the monoid
   proofnm : m = 1 ∨ m < n*2-1
 
-def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
+def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do    -- recursive algorithm to compute m and H from n, and the associated proofs
   if hn1: n ≤ 1 then
     ✓ ⟨1, 0, by omega, by omega, by omega⟩
   else
@@ -99,6 +105,8 @@ def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do
     ✓ ⟨m1*2, H1+1, proof2_m_pow2H, proof2_mn, proof2_m2n⟩ -- just O(1) operations
 
 
+-- function build returns a SegmentTree from a vector of elements xs of the monoid α,
+-- providing in particular the proof of the the segment tree property h_children
 def build (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) : TimeM (SegmentTree α n) := do
   let ⟨m, H, proof_m_pow2H, proof_mn, proof_m2n⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
@@ -119,14 +127,14 @@ def build (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) : TimeM (Se
       simp [Vector.get] at proof
       exact proof
     }
-  ⟩, (m-n + 2*m)      -- cost of augmenting vector a with identity element before calling build_helper, and then reversing it afterwards
+  ⟩, (m-n + 2*m)      -- cost of augmenting vector a with identity element before calling build_helper, plus the cost of reversing it afterwards
 
 
 lemma compute_m_H_time_base (n : ℕ) (hn : n ≤ 1) : (compute_m_H n).time = 1 := by
   unfold compute_m_H
   simp_all
 
-lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.log 2 (n-1) + 2 := by
+lemma compute_m_H_time_rec (n : ℕ) (hn : n > 1) : (compute_m_H n).time = Nat.log 2 (n-1) + 2 := by -- recursively computing m and H takes O(log2 n) time, negligible in the total time of build
   unfold compute_m_H
   split_ifs with hn1 <;> try grind
   simp
@@ -172,9 +180,9 @@ theorem compute_m_H_time (n : ℕ) : (compute_m_H n).time ≤ Nat.log 2 (n-1) + 
   }
 
 theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector α m)
-  : (build_helper m j xs).time ≤ 2*m-j+1
-:= by
-  unfold build_helper
+  : (build_helper m j xs).time ≤ 2*m-j+1      -- the time for build_helper is linear in 2m-j = the number of elements of the segment tree that we want to build (in reverse order):
+:= by                                         -- in the trivial case with j≥2m it takes O(1) time,
+  unfold build_helper                         -- in all recursive cases, it takes 2m-j time for the recursive call, plus 1 to append the new element
   split_ifs with h2m h0 h_jm <;> simp
   · have h_rec := build_helper_time m (j+1) xs
     simp_all
@@ -193,8 +201,8 @@ theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector
 
 theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) :
   (build α inst n xs).time ≤ 8 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x(2n-1)+1 + 2x(2n-1))
-:= by
-  unfold build
+:= by                                       -- summing all time components for: computing m and H (O(log2 n) time), augmenting the original vector (O(m) = O(n) time), building st.a in reverse with buid_helper (O(m) time), and lastly reversing it (O(m) time),
+  unfold build                              -- we get a linear component, plus a logarithmic one (negligible wrt the linear one), and some additive constants, which yield in total a O(n) complexity
   simp
   have h_compute_m_H_time := compute_m_H_time n
   have h_build_helper_time := fun (xs : Vector α (compute_m_H n).ret.m) ↦ (build_helper_time ((compute_m_H n).ret.m) 0 xs)
