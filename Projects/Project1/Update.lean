@@ -7,21 +7,36 @@ import Projects.Project1.FoldlHelpers
 set_option autoImplicit false
 
 
+-- UPDATE OPERATION:
+-- function update: given a SegmentTree st, it contructs and returns a new SegmentTree from st, such that:
+  -- all leaves are left unchanged except for the leaf p (= node st.m+p), which will get the new value x IFF it is a valid leaf,
+  -- and the internal nodes are updated accordingly, so that the segment tree property h_children holds once again for all of them
+  -- (in particular, only the ancestors of the leaf in question will need to be updated)
+
+
+-- function update_helper produces a new Vector of size 2m that has been updated from position j going "downwards"
+-- so that the only modified leaf is p (= node p+m) if it is valid, and for all internal nodes accept for j's proper ancestors the h_children property holds.
+-- This is a top-down recursive function that operates in two phases:
+-- 1. starting from node j we travel downward to locate leaf p, by recursion
+-- 2. when we get to j=m+p we update the node and then return, thus traveling upward to the caller and updating all ancestors of the leaf on our way back
 def update_helper {α : Type} [inst : Monoid α] (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
   (h_j0 : j > 0) (b : Vector α (2 * st.m)) : TimeM (Vector α (2 * st.m)) := do
   if h_j : j < 2*st.m then
-    if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf
+    if h_sub : p = L ∧ p+1 = R then   -- if we got to this case, j is a leaf, so we perform the update and return
       ✓ (b.set j x h_j)
     else if h_empty : p < L ∨ p ≥ R then
       ✓ b
-    else if h_int : 2*j+1 < 2*st.m then
+    else if h_int : 2*j+1 < 2*st.m then         -- if j is a (valid) internal node containing leaf p within its coverage interval [L, R):
       let C := (L+R)/2
-      let b ← update_helper n st x p (2*j) L C (by omega) b
+      let b ← update_helper n st x p (2*j) L C (by omega) b           -- we call the function recursively on its children (one will terminate in 1 step)
       let b ← update_helper n st x p (2*j + 1) C R (by omega) b
-      ✓ (b.set j (b.get ⟨2*j, (by omega)⟩ * b.get ⟨2*j +1, (by omega)⟩ ) (by omega))
+      ✓ (b.set j (b.get ⟨2*j, (by omega)⟩ * b.get ⟨2*j +1, (by omega)⟩ ) (by omega))   -- and then update node j so that h_children holds for it as well
     else ✓ b
   else ✓ b
 
+-- property of an (almost) segment tree Vector that checks if h_children is valid on all nodes except for j's proper ancestors
+-- (which means in particular that it must hold for j).
+-- When this property holds for j=1 (= root of the tree), the vector is a correct segment tree vector
 def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vector α (2*m)) : Prop :=
   ∀ (i : ℕ) (h_i0 : i > 0) (h_i_neq_j2 : ∀ g > 0, i ≠ j/(2^g)) (h_i_ub : i < m),
     a.get ⟨i, by omega⟩ = a.get ⟨2*i, by omega⟩ * a.get ⟨2*i+1, by omega⟩
@@ -36,18 +51,12 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   := by
 
   set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
-  -- set b2 := (update_helper n st val pos j x y h_j0 b1).ret with h_b2
-  -- rw [h_b2]
   simp
   intro h_x h_y
   rw [← h_x, ← h_y]
   intro h_input
 
   unfold update_helper
-  --have H_spec := st.h_m_pow2H
-  --have H_spec2: st.H = st.m.log2 := by
-  --  rw[H_spec]
-  --  rw [Nat.log2_two_pow]
   simp only [TimeM.tick] -- get rid of time measurement
 
   split_ifs with h_sub h_disjoint h_int <;> simp
@@ -217,10 +226,14 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   · contradiction
 
 
+-- function update: given a SegmentTree st, it contructs and returns a new SegmentTree from st, such that:
+  -- all leaves are left unchanged except for the leaf p (= node st.m+p), which will get the new value x IFF it is a valid leaf,
+  -- and the internal nodes are updated accordingly, so that the segment tree property h_children holds once again for all of them
+  -- (in particular, only the ancestors of the leaf in question will need to be updated)
 def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) : TimeM (SegmentTree α n) := do
-  if hposm: p < st.m then
-    let b := update_helper n st x p 1 0 st.m (by omega) st.a
-
+  if hposm: p < st.m then                                       -- if p denotes a valid leaf:
+    let b := update_helper n st x p 1 0 st.m (by omega) st.a    -- the function calls update_helper from the root (j=1) to obtain an update segment tree vector from st.a,
+                                                                -- which has cost O(log2 n)
     ⟨⟨
       st.m,
       st.H,
@@ -229,7 +242,8 @@ def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : 
       st.h_mn,
       st.h_m2n,
       st.h_m_pow2H,
-      by {
+      by {                          -- this function then proves that h_children holds on Vector b leveraging the lemma update_helper_correctness,
+                                    -- but we won't count this part in the time computations
         have h1_2m : 1 < 2*st.m := by{
           rw [Nat.lt_iff_add_one_le]; rw[show 1+1 = 2*1 from rfl]; rw [Nat.mul_le_mul_left_iff (by omega)];
           rw [Nat.one_le_iff_ne_zero]; rw [Nat.ne_zero_iff_zero_lt]; exact st.h_m0}

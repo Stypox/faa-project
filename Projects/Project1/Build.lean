@@ -7,7 +7,13 @@ import Projects.Project1.FoldlHelpers
 set_option autoImplicit false
 
 
--- helper structure used in build operation:
+
+-- BUILD OPERATION:
+-- function build returns a SegmentTree from a vector of elements xs of the monoid α,
+-- providing in particular the proof of the segment tree property h_children
+
+
+-- BuildHelperStruct: helper structure used in build operation:
 -- stores in reverse order the last (2*m-j) elements of segment tree vector (= inteval [j, 2m) of st.a),
 -- and a proof that they all satisfy the h_children property of the segment tree (except for the leaves)
 structure BuildHelperStruct (α : Type) [Monoid α] (m j : ℕ) where
@@ -106,7 +112,7 @@ def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do    -- recursive algorithm t
 
 
 -- function build returns a SegmentTree from a vector of elements xs of the monoid α,
--- providing in particular the proof of the the segment tree property h_children
+-- providing in particular the proof of the segment tree property h_children
 def build (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) : TimeM (SegmentTree α n) := do
   let ⟨m, H, proof_m_pow2H, proof_mn, proof_m2n⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
