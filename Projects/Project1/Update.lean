@@ -236,7 +236,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
   · contradiction
 
 
--- function update: given a SegmentTree st, it contructs and returns a new SegmentTree from st, such that:
+-- function update: given a SegmentTree st, it constructs and returns a new SegmentTree from st, such that:
   -- all leaves are left unchanged except for the leaf p (= node st.m+p), which will get the new value x IFF it is a valid leaf,
   -- and the internal nodes are updated accordingly, so that the segment tree property h_children holds once again for all of them
   -- (in particular, only the ancestors of the leaf in question will need to be updated)
@@ -298,26 +298,19 @@ def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : 
         exact him
       }
     ⟩, b.time⟩
-  else ✓ ⟨
-      st.m,
-      st.H,
-      st.a,
-      st.h_m0,
-      st.h_mn,
-      st.h_m2n,
-      st.h_m_pow2H,
-      st.h_children⟩
+  else ✓ st    -- if p is not a valid leaf, the original segment tree is returned
+
 
 theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
   (h_j0 : j > 0) (b : Vector α (2 * st.m)) :
-  (update_helper n st x p j L R h_j0 b).time ≤ 5 + 2 * (st.H - Nat.log 2 j)
-:= by
+  (update_helper n st x p j L R h_j0 b).time ≤ 5 + 2 * (st.H - Nat.log 2 j)   -- the time of update_helper is logarithmic in the height (h = H - l = H - log2 j) of the node j,
+:= by                                                                         -- this is computed recursively
   unfold update_helper
-  split_ifs with h_j2m h_sub h_disjoint <;> simp; all_goals try omega
-  expose_names
-  set C := ((L + R) / 2) with h_C
-  have h_H_gt_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
-  have h_internal : j < st.m := by omega
+  split_ifs with h_j2m h_sub h_disjoint <;> simp; all_goals try omega         -- all base cases take O(1) time,
+  expose_names                                                                -- in the recursive case, j is an internal node that calls recursion on its two children,
+  set C := ((L + R) / 2) with h_C                                             -- but leaf p can't be in both coverage intervals of the children, therefore one child will terminate immediately,
+  have h_H_gt_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega           -- while the other will allow recursion to move forward (or actually downward), until it reaches the leaf, performs the update, and then comes back up (updating the leaf's ancestors in the process),
+  have h_internal : j < st.m := by omega                                      -- thus walking a total number of steps that is twice the height of j
   have h_H_geq_log2jp1 := st.internal_H_geq_log2jp1 j h_j0 h_internal
 
   if h_pC : p < C then {
@@ -346,11 +339,10 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
 
 theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) :
   (update α inst n st x p).time ≤ 9 + 2 * (Nat.log 2 n) -- 4 + 2 * (Nat.log 2 n + 2) + 1
-:= by
-  -- TODO deduplicate this proof with that of query_time
-  unfold update
-  simp
-  split_ifs with hposm
+:= by                     -- the time complexity of update is O(log2 n):
+  unfold update           -- if pos is not a valid leaf it only takes O(1) time,
+  simp                    -- otherwise it calls update_helper with j=1 (the root),
+  split_ifs with hposm    -- which in this case has complexity O(H - log2 1) = O(H) = O(log2 m) = O(log2 n)
   · have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
     grw [h_helper]
     simp
