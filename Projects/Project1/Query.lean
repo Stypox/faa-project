@@ -131,37 +131,31 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
 
 theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
   (query α inst n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
-:= by
+:= by                     -- the correctness of query comes directly from that of query_aux
   unfold query
   have h1 : 1 < 2*st.m := by
-    have h_m0 := st.h_m0
-    rw [show (st.m > 0) = (0 < st.m) from rfl] at h_m0
-    rw [Nat.lt_iff_add_one_le] at h_m0
-    simp_all
-    calc
-      1 < 2 := by trivial
-      _ = 2*1 := by trivial
-      _ ≤ 2*st.m := by grw [h_m0]
+    rw [show (1 < 2 * st.m) = (Nat.succ 1).le (2 * st.m) from rfl]; simp;
+    have h_m0 := st.h_m0; omega
   rw [query_aux_correctness α inst n 1 p q 0 st.m st (by omega) h1]
-  · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
-    rw [show 2 ^ Nat.log2 1 = 1 from rfl]
-    rw [show 1 - 1 = 0 from rfl]
-    rw [Nat.mul_zero (2 ^ (st.H - Nat.log2 1))]
+
+  all_goals (
+    try simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
+    try rw [show Nat.log2 1 = 0 from rfl]
+    try rw [show 2 ^ 0 = 1 from rfl]
+    try grind
+  )
+
+  · rw [show 1 - 1 = 0 from rfl]
+    rw [show 2 ^ (st.H - 0) * 0 = 0 from rfl]
+    rw [show st.H - 0 = st.H from rfl]
+    rw [Nat.zero_add (2 ^ st.H)]
     rw [Nat.zero_max p]
-    rw [Nat.zero_add (2 ^ (st.H - Nat.log2 1))]
-    rw [show Nat.log2 1 = 0 from rfl]
-    rw [Nat.sub_zero st.H]
     have htmp := st.h_m_pow2H
     rw[← htmp]
     suffices h_arr_estr : (st.a.toArray.extract (st.m + p) (st.m + min st.m q)) = (st.a.toArray.extract (st.m + p) (st.m + q)) by
       rw[h_arr_estr]
     grind
-  all_goals (
-    simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
-    rw [show Nat.log2 1 = 0 from rfl]
-    rw [show 2 ^ 0 = 1 from rfl]
-    grind
-  )
+
 
 -- trivial cases for query_aux: the time taken is 1
 theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
