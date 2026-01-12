@@ -49,6 +49,7 @@ def albero := build ℕ NatWithSum n xs
 
 def albero1 := update ℕ NatWithSum 9 albero.ret 5 3
 #check albero1
+#eval albero1.time
 #eval albero1.ret.a
 
 

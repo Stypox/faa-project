@@ -286,12 +286,17 @@ def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : 
 
 theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p j L R : ℕ)
   (h_j0 : j > 0) (b : Vector α (2 * st.m)) :
-  (update_helper n st x p j L R h_j0 b).time ≤ 1 + 2 * (2 + st.H - Nat.log 2 j)
+  (update_helper n st x p j L R h_j0 b).time ≤ 5 + 2 * (st.H - Nat.log 2 j)
 := by
   unfold update_helper
-  split_ifs with h_j2m h_sub h_disjoint <;> simp
+  split_ifs with h_j2m h_sub h_disjoint <;> simp; all_goals try omega
+  expose_names
   set C := ((L + R) / 2) with h_C
-  have h_H_geq_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
+  have h_H_gt_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
+  have h_internal : j < st.m := by omega
+  have h_H_geq_log2jp1 : st.H ≥ (Nat.log 2 j + 1) := by{
+    sorry
+  }
 
   if h_pC : p < C then {
     have h_left := update_helper_time α inst n st x p (2 * j) L C (by omega) b
@@ -318,7 +323,7 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
 
 
 theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) :
-  (update α inst n st x p).time ≤ 4 + 2 * (Nat.log 2 n + 2) + 1
+  (update α inst n st x p).time ≤ 9 + 2 * (Nat.log 2 n) -- 4 + 2 * (Nat.log 2 n + 2) + 1
 := by
   -- TODO deduplicate this proof with that of query_time
   unfold update
@@ -327,7 +332,9 @@ theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α
   · have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
     grw [h_helper]
     simp
-    rw [Nat.add_comm, Nat.mul_add]
+    rw [show 9 = 5 + 2*2 from rfl]
+    rw [Nat.add_assoc 5 (2 * 2) (2 * Nat.log 2 n)]
+    rw [← Nat.mul_add 2 2 (Nat.log 2 n)]
     simp
     apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
     rw [← st.h_m_pow2H]
@@ -345,9 +352,10 @@ theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α
         } else {
           simp_all
         }
-      nth_rw 2 [show 2 = 1 + 1 from rfl]
+      --nth_rw 2 [show 2 = 1 + 1 from rfl]
+      rw [Nat.add_comm]
       rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
       rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
       grw [h_pow_log_n]
       omega
-  · simp
+  · simp; omega

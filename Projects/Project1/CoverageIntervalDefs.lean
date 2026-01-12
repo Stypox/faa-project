@@ -270,9 +270,11 @@ lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : S
 
 lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTree α n)
   (j : ℕ) (h_j0 : j > 0) (h_j2m : j < 2 * st.m) :
-  st.H + 1 ≥ Nat.log 2 j
+  st.H ≥ Nat.log 2 j
 := by
-  apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
+  rw [show (st.H ≥ Nat.log 2 j) = (Nat.log 2 j ≤ st.H) from rfl]
+  rw [Nat.le_iff_lt_add_one]
+  apply (Nat.pow_lt_pow_iff_right (a:=2) (by omega)).mp
   rw [Nat.pow_add_one 2 st.H]
   rw [← st.h_m_pow2H]
   grw [Nat.pow_log_le_self 2 (x:=j) (by omega)]
