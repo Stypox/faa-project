@@ -255,8 +255,8 @@ def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : 
       by {                          -- this function then proves that h_children holds on Vector b leveraging the lemma update_helper_correctness,
                                     -- but we won't count this part in the time computations
         have h1_2m : 1 < 2*st.m := by{
-          rw [Nat.lt_iff_add_one_le]; rw[show 1+1 = 2*1 from rfl]; rw [Nat.mul_le_mul_left_iff (by omega)];
-          rw [Nat.one_le_iff_ne_zero]; rw [Nat.ne_zero_iff_zero_lt]; exact st.h_m0}
+          rw [show (1 < 2 * st.m) = (Nat.succ 1).le (2 * st.m) from rfl]; simp;
+          have h_m0 := st.h_m0; omega}
 
         have proof := update_helper_correctness α inst n 1 0 st.m x p st (by omega) (by exact h1_2m) hposm st.a
 

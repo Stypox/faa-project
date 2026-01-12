@@ -6,6 +6,18 @@ import Projects.Project1.FoldlHelpers
 
 set_option autoImplicit false
 
+
+-- QUERY OPERATION:
+-- query function: given an interval [p, q), if we call p1:=max(0, p) and q1:=min(q, st.m)
+-- and denote with leaf[] the bottom layer of the tree (= a[m] to a[2m-1]),
+-- it returns the result of the computation leaf[p1] * leaf[p1+1] * .... * leaf[q1-2] * leaf[q1-1],
+-- or the identity element if q1 ≤ p1
+
+-- the query starts by calling query_aux from the root (j=1) and operates recursively:
+-- at each node, if its coverage interval is entirely contained in the query interval, it returns the value stored at that node,
+-- otherwise, if the two intervals are disjoint, it returns the identity element,
+-- lastly, if the two have a proper intersection, the function will query the children of node j, and aggregate their answers
+
 def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) : TimeM α :=
   query_aux 1 0 st.m (by omega)
   where query_aux (j L R: ℕ) (h_j0 : j > 0) : TimeM α := do
@@ -24,6 +36,10 @@ def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q :
 
 #check Array.extract_eq_empty_of_le
 
+-- we want to prove that the function query_aux "is correct" under some validity conditions, which means:
+-- when j is a valid node and the parameters x y correspond to the coverage interval of node j,
+-- then, given p1:=max(0, p) and q1:=min(q, st.m), the return value is indeed a[m + p1] * a[m + p1 + 1] * .... * a[m + q1 - 2] * a[m + q1 -1],
+-- (which corresponds to a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1)
 lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   d.L = x → d.R = y →
@@ -41,17 +57,17 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
 
   intro h_x h_y
   rw [← h_x, ← h_y]
-
+                                      -- the proof works recursively with 2 base cases and 1 recursive case
   split_ifs with h_sub h_disjoint
-  · -- case where coverage interval [L, R) is completely included in query interval [p, q)
-    rw [Nat.max_eq_left h_sub.left]
-    rw [Nat.min_eq_left h_sub.right]
+  · -- case where coverage interval [L, R) is completely included in query interval [p, q):
+    rw [Nat.max_eq_left h_sub.left]               -- we get p1=L and q1=R, thus the desired output is a[m + L] * a[m + L + 1] * .... * a[m + R - 2] * a[m + R - 1],
+    rw [Nat.min_eq_left h_sub.right]              -- which, by the lemma coverage_interval, is exactly the value stored in node j
     rw [st.coverage_interval n j h_j0 h_j]
 
   · -- case where coverage interval [L, R) and query interval [p, q) are disjoint
-    cases h_disjoint with
-    | inl h_disjoint =>
-      rw [Nat.min_eq_right (by grw[h_disjoint, d.L_lt_R])]
+    cases h_disjoint with                                     -- disjoint intervals implies that either q ≤ L or R ≤ p,
+    | inl h_disjoint =>                                       -- with both cases implying q1 ≤ p1, therefore a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)) is empty,
+      rw [Nat.min_eq_right (by grw[h_disjoint, d.L_lt_R])]    -- and the application of foldl yields 1
       have h_ineq : q ≤ max d.L p := by omega
       rw [Array.extract_eq_empty_of_le (by omega)]
       rw [Array.foldl_empty]
@@ -80,68 +96,66 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
     rw [← d.Lj_eq_L2j dLeft h_internal, ← d.Cj_eq_R2j dLeft h_internal,
       ← d.Cj_eq_L2jp1 dRight h_internal, ← d.Rj_eq_R2jp1 dRight h_internal]
 
-    -- splittare in 3 casi:
-    -- 1. p>=C (ovvero l'intersez tra l'intervallo query e la prima meta' del coverage interval e' vuota)
-    -- 2. q<=C (ovvero l'intersezione con la seconda meta' e' vuota)
-    -- 2. p < C < q, quindi si usa foldl combine
+    -- in the recursive case, we assume by way of recursion that query_aux yields the correct results on the children for query interval [p, q),
+    -- (resLeft (= fold1) = a[m+p1] * a[m+p1+1] * ... * a[m+min(q, C)-1]  and   resRight = a[m+max(p, C)] * a[m+max(p,C)+1] * ... * a[m+q1-1])
+    -- and we are left to prove that their aggregation is indeed a[m + p1] * a[m + p1 + 1] * .... * a[m + q1 - 2] * a[m + q1 -1]
+
+    -- we divide the goal in 3 cases:
+    -- 1. p>=C (that means the intersection of the query interval and the first half of the coverage interval is empty)
+    -- 2. q<=C (that means the intersection with the second half is empty)
+    -- 2. p < C < q, neither intersection is empty (we will leverage the foldl_combine lemma)
     have h_Cmid : d.L < d.C ∧ d.C < d.R := d.internal_L_lt_C_lt_R h_internal
 
-    if h_pC : d.C ≤ p then
-      rw [Array.extract_eq_empty_of_le (by omega)]
+    if h_pC : d.C ≤ p then                            -- resLeft is actually 1 because [max(L, p), min(q, C)) is an empty interval,
+      rw [Array.extract_eq_empty_of_le (by omega)]    -- therefore the result of the query on j is equal to resRight
       rw [Array.foldl_empty]
       rw [one_mul]
       rw [show max d.C p = p from by omega]
       rw [show max d.L p = p from by omega]
-    else if h_Cq : q ≤ d.C then
+    else if h_Cq : q ≤ d.C then                       -- resRight is actually 1 because [max(C, p), min(q, R)) is an empty interval,
       set fold1 := Array.foldl (fun a b ↦ a * b) 1 (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.C q)) with h_f1
-      rw [Array.extract_eq_empty_of_le (by omega)]
+      rw [Array.extract_eq_empty_of_le (by omega)]    -- therefore the result of the query on j is equal to resLeft (=fold1)
       rw [Array.foldl_empty]
       rw [mul_one]
       subst fold1
       rw [show min d.C q = q from by omega]
       rw [show min d.R q = q from by omega]
-    else
-      rw [show min d.C q = d.C from by omega]
-      rw [show max d.C p = d.C from by omega]
-      rw [foldl_combine]
-      omega
+    else                                              -- neither intersection was empty, which means that min(q, C) = C = max(C, p),
+      rw [show min d.C q = d.C from by omega]         -- therefore resLeft (= fold1) = a[m+p1] * a[m+p1+1] * ... * a[m+C-1],
+      rw [show max d.C p = d.C from by omega]         -- and resRight = a[m+C] * a[m+C+1] * ... * a[m+q1-1],
+      rw [foldl_combine]                              -- which means that their product is exactly a[m+p1] * a[m+p1+1] * .... * a[m+q1-2] * a[m+q1-1],
+      omega                                           -- as stated by the lemma foldl_combine
 
 #check Nat.lt_pow_succ_log_self
 #check Array.foldl_empty
 
 theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
   (query α inst n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
-:= by
+:= by                     -- the correctness of query comes directly from that of query_aux
   unfold query
   have h1 : 1 < 2*st.m := by
-    have h_m0 := st.h_m0
-    rw [show (st.m > 0) = (0 < st.m) from rfl] at h_m0
-    rw [Nat.lt_iff_add_one_le] at h_m0
-    simp_all
-    calc
-      1 < 2 := by trivial
-      _ = 2*1 := by trivial
-      _ ≤ 2*st.m := by grw [h_m0]
+    rw [show (1 < 2 * st.m) = (Nat.succ 1).le (2 * st.m) from rfl]; simp;
+    have h_m0 := st.h_m0; omega
   rw [query_aux_correctness α inst n 1 p q 0 st.m st (by omega) h1]
-  · simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
-    rw [show 2 ^ Nat.log2 1 = 1 from rfl]
-    rw [show 1 - 1 = 0 from rfl]
-    rw [Nat.mul_zero (2 ^ (st.H - Nat.log2 1))]
+
+  all_goals (
+    try simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
+    try rw [show Nat.log2 1 = 0 from rfl]
+    try rw [show 2 ^ 0 = 1 from rfl]
+    try grind
+  )
+
+  · rw [show 1 - 1 = 0 from rfl]
+    rw [show 2 ^ (st.H - 0) * 0 = 0 from rfl]
+    rw [show st.H - 0 = st.H from rfl]
+    rw [Nat.zero_add (2 ^ st.H)]
     rw [Nat.zero_max p]
-    rw [Nat.zero_add (2 ^ (st.H - Nat.log2 1))]
-    rw [show Nat.log2 1 = 0 from rfl]
-    rw [Nat.sub_zero st.H]
     have htmp := st.h_m_pow2H
     rw[← htmp]
     suffices h_arr_estr : (st.a.toArray.extract (st.m + p) (st.m + min st.m q)) = (st.a.toArray.extract (st.m + p) (st.m + q)) by
       rw[h_arr_estr]
     grind
-  all_goals (
-    simp only [CoverageIntervalDefs.from_st, CoverageIntervalDefs.from_assumptions, st.h_m_pow2H]
-    rw [show Nat.log2 1 = 0 from rfl]
-    rw [show 2 ^ 0 = 1 from rfl]
-    grind
-  )
+
 
 -- trivial cases for query_aux: the time taken is 1
 theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
