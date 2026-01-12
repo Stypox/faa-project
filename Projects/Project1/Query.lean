@@ -153,12 +153,12 @@ theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) 
   grind
 
 -- when the interval [p, q) overlaps with [L, R) without being fully contained,
--- i.e. p or q are outside the range [L, R), the query_aux recursion continues non-trivially only
+-- i.e. either p or q are outside the range [L, R), the query_aux recursion continues non-trivially only
 -- either left or right and with smaller [L, R) s.t. [p, q) still overlaps with [L, R) the same way,
 -- so we can do the proof recursively as well
 theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
   (h_semiinterval : p ≤ L ∨ q ≥ R) :
-  (query.query_aux α inst n st p q j L R h_j0).time ≤ 2 * (2 + st.H - Nat.log 2 j) + 1
+  (query.query_aux α inst n st p q j L R h_j0).time ≤  2 * (2 + st.H - Nat.log 2 j) + 1 -- 5 + 2 * (st.H - Nat.log 2 j)
 := by
   unfold query.query_aux
   split_ifs with h_j2m h_sub h_disjoint <;> simp
@@ -166,7 +166,7 @@ theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st 
   have h_H_geq_log2j := st.H_geq_log2j j h_j0 h_j2m -- used by omega
 
   cases h_semiinterval with
-  | inl h_pL => if h_Cq : q < C then {
+  | inl h_pL => if h_Cq : q ≤ C then {
       have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
       have h_right := query_aux_time_out_sub_disjoint α inst n st p q (2 * j + 1) C R (by omega) (by omega)
       grw [h_left, h_right]
@@ -185,7 +185,7 @@ theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st 
       simp
       omega
     }
-  | inr h_qR => if h_Cp : p < C then {
+  | inr h_qR => if h_Cp : p ≤ C then {
       have h_left := query_aux_time_semiinterval α inst n st p q (2 * j) L C (by omega) (by omega)
       have h_right := query_aux_time_out_sub_disjoint α inst n st p q (2 * j + 1) C R (by omega) (by omega)
       grw [h_left, h_right]
@@ -207,11 +207,11 @@ theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st 
 termination_by R - L
 
 -- for the general proof, we distinguish three cases based on the position of C with respect to p and q,
--- and notice that in when C is outside [p, q) one of the recursive query_aux calls trivially terminates,
+-- and notice that when C is outside [p, q) one of the recursive query_aux calls trivially terminates,
 -- while when C is in [p, q) the recursive query_aux calls are of the form supported by
 -- `query_aux_time_semiinterval`
 theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0) :
-  (query.query_aux α inst n st p q j L R h_j0).time ≤ 4 * (2 + st.H - Nat.log 2 j) + 1
+  (query.query_aux α inst n st p q j L R h_j0).time ≤ 4 * (2 + st.H - Nat.log 2 j) + 1  -- 9 + 4 * (st.H - Nat.log 2 j)
 := by
   unfold query.query_aux
   split_ifs with h_j2m h_sub h_disjoint <;> simp
@@ -245,13 +245,21 @@ theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree
 -- case where j=1, L=0, R=m,
 -- and then proves the time complexity in terms of n based on the time complexity in terms of m
 theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
-  (query α inst n st p q).time ≤ 4 * (Nat.log 2 n + 2) + 9
+  (query α inst n st p q).time ≤ 17 + 4 * (Nat.log 2 n)  -- 4 * (Nat.log 2 n + 2) + 9
 := by
   unfold query
   have h_aux := query_aux_time α inst n st p q 1 0 st.m (by omega)
   grw [h_aux]
   simp
   rw [Nat.add_comm, Nat.mul_add]
+  simp
+  rw [← Nat.add_assoc 1 8 (4 * st.H)]
+  simp
+  rw[show 17 = 9 + 8 from rfl]
+  rw [Nat.add_assoc 9 8 (4 * Nat.log 2 n)]
+  simp
+  rw[show 8 = 4*2 from rfl]
+  rw [← Nat.mul_add 4 2 (Nat.log 2 n)]
   simp
   apply (Nat.pow_le_pow_iff_right (a:=2) (by omega)).mp
   rw [← st.h_m_pow2H]
@@ -269,6 +277,7 @@ theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α 
       } else {
         simp_all
       }
+    rw [Nat.add_comm 2 (Nat.log 2 n)]
     nth_rw 4 [show 2 = 1 + 1 from rfl]
     rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
     rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
