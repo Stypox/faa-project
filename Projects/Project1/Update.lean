@@ -43,20 +43,20 @@ def st_prop_except_ancestors {α : Type} [inst: Monoid α] (m j : ℕ) (a: Vecto
 
 
 -- we want to prove that the function update_helper "is correct" under some validity conditions, which means:
--- when j is a valid node, pos is a valid leaf, the parameters x y correspond to the coverage interval of node j, and st_prop_except_ancestors holds on the input vector for node j,
--- then st_prop_except_ancestors holds on the output of update_helper as well, and if leaf pos was indeed within the coverage interval then its value has been modified
-lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (val : α) (pos : ℕ) (st : SegmentTree α n)
-    (h_j0 : j > 0) (h_j : j < 2*st.m) (hposm: pos < st.m) (b1 : Vector α (2*st.m)) :
+-- when j is a valid node, p is a valid leaf, the parameters L R correspond to the coverage interval of node j, and st_prop_except_ancestors holds on the input vector for node j,
+-- then st_prop_except_ancestors holds on the output of update_helper as well, and if leaf p was indeed within the coverage interval then its value has been modified
+lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j L R : ℕ) (x : α) (p : ℕ) (st : SegmentTree α n)
+    (h_j0 : j > 0) (h_j : j < 2*st.m) (hposm: p < st.m) (b1 : Vector α (2*st.m)) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
-  let b2 := (update_helper n st val pos j x y h_j0 b1).ret
-  (d.L = x ∧ d.R = y ∧ st_prop_except_ancestors st.m j b1) →
-    st_prop_except_ancestors st.m j b2 ∧ ((x ≤ pos ∧ pos < y) → b2.get ⟨pos + st.m, by omega⟩ = val)
+  let b2 := (update_helper n st x p j L R h_j0 b1).ret
+  (d.L = L ∧ d.R = R ∧ st_prop_except_ancestors st.m j b1) →
+    st_prop_except_ancestors st.m j b2 ∧ ((L ≤ p ∧ p < R) → b2.get ⟨p + st.m, by omega⟩ = x)
   := by
 
   set d := CoverageIntervalDefs.from_st n j st h_j0 h_j with h_d
   simp
-  intro h_x h_y
-  rw [← h_x, ← h_y]
+  intro h_L h_R
+  rw [← h_L, ← h_R]
   intro h_input
 
   unfold update_helper
@@ -64,9 +64,9 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
 
   split_ifs with h_sub h_disjoint h_int <;> simp      -- the proof works recursively with 2 base cases, 1 recursive case (and a contraddictory one)
 
-  · have h_leaf : st.m ≤ j := by                        -- if pos = L and pos + 1 = R, node j is exactly the leaf pos, because its coverage interval is [pos, pos+1).
+  · have h_leaf : st.m ≤ j := by                        -- if p = L and p + 1 = R, node j is exactly the leaf p, because its coverage interval is [p, p+1).
         obtain ⟨h_pL, h_pR⟩ := h_sub                    -- In this case, the input vector b1 remains unchanged except for b1[j] which becomes val,
-        rw [h_pL] at h_pR                               -- therefore st_prop_except_ancestors still holds forall internal nodes, and leaf pos was indeed correctly updated
+        rw [h_pL] at h_pR                               -- therefore st_prop_except_ancestors still holds forall internal nodes, and leaf p was indeed correctly updated
         rw [st.h_m_pow2H]
         exact d.leaf_interval_R.mpr (by omega)
 
@@ -82,18 +82,18 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
         omega
       · exact h_input i h_i0 h_i_neq_j2 h_i_ub
 
-    · have h_tmp : pos + st.m = j := by
+    · have h_tmp : p + st.m = j := by
         rw[h_sub.left, CoverageIntervalDefs.leaf_interval_L d (by {rw[← st.h_m_pow2H]; exact h_leaf}), ← st.h_m_pow2H]
         rw [tsub_add_cancel_of_le h_leaf]
       intro h_Lpos h_posR hhh
       rw[h_tmp] at hhh
       contradiction
 
-  · constructor         -- when pos does not belong in the coverage interval of j, the input vector remains unchanged,
+  · constructor         -- when p does not belong in the coverage interval of j, the input vector remains unchanged,
     · assumption        -- therefore st_prop_except_ancestors still trivially holds,
     · grind             -- and there was nothing to update
 
-  all_goals have h_internal : j < 2^st.H := d.not_in_leaf pos (pos+1) (by grind) (by grind)   -- in all remaining cases, j is an internal node, with pos in its coverage interval
+  all_goals have h_internal : j < 2^st.H := d.not_in_leaf p (p+1) (by grind) (by grind)   -- in all remaining cases, j is an internal node, with p in its coverage interval
   all_goals simp at h_disjoint
   all_goals have h2j12m : 2*j + 1 < 2*st.m := by {
     rw [Nat.lt_iff_add_one_le] at h_internal; rw [Nat.lt_iff_add_one_le]
@@ -115,11 +115,11 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       · exact (d.Cj_eq_L2jp1 dRight h_internal).symm
       · exact (d.Rj_eq_R2jp1 dRight h_internal).symm
 
-    have h_updateLeft := update_helper_correctness α inst n (2*j) x d.C val pos st
+    have h_updateLeft := update_helper_correctness α inst n (2*j) L d.C x p st
       (by omega) (by omega) (by omega) b1               -- by way of recursion, update_helper on b1 produced an output bLeft that is correct,
     simp [← h_dL] at h_updateLeft                       -- which means that st_prop_except_ancestors holds on bLeft on all internal nodes except for the proper ancestors of 2j,
-    rw [← h_x, ← h_y] at h_updateLeft                   -- (because the proper ancestors of 2j are strictly contained in those of j, therefore b1 meets the precondition for recursion)
-    simp [h_intervs] at h_updateLeft                    -- and that, if pos is in the left half of [L, R), bLeft[pos] was updated to val
+    rw [← h_L, ← h_R] at h_updateLeft                   -- (because the proper ancestors of 2j are strictly contained in those of j, therefore b1 meets the precondition for recursion)
+    simp [h_intervs] at h_updateLeft                    -- and that, if p is in the left half of [L, R), bLeft[p] was updated to val
 
     have h_prop_left : st_prop_except_ancestors st.m (2 * j) b1 := by
       unfold st_prop_except_ancestors
@@ -133,13 +133,13 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
         assumption
       }) h_i_ub
     simp [h_prop_left] at h_updateLeft
-    set bLeft := (update_helper n st val pos (2 * j) d.L d.C (by omega) b1).ret with h_bLeft
+    set bLeft := (update_helper n st x p (2 * j) d.L d.C (by omega) b1).ret with h_bLeft
 
-    have h_updateRight := update_helper_correctness α inst n (2*j+1) d.C y val pos st
+    have h_updateRight := update_helper_correctness α inst n (2*j+1) d.C R x p st
       (by omega) (by omega) (by omega) bLeft            -- as with the left child, we also know by recursion that update_helper on bLeft produced an output (bRight) that is correct,
     simp [← h_dR] at h_updateRight                      -- which means that st_prop_except_ancestors holds on bRight on all internal nodes except for the proper ancestors of 2j+1,
-    rw[← h_x, ← h_y] at h_updateRight                   -- (because the proper ancestors of 2j+1 are the same as those of 2j, therefore bLeft meets the precondition for recursion)
-    simp [h_intervs] at h_updateRight                   -- and that, if pos is in the right half of [L, R), bRight[pos] was updated to val
+    rw[← h_L, ← h_R] at h_updateRight                   -- (because the proper ancestors of 2j+1 are the same as those of 2j, therefore bLeft meets the precondition for recursion)
+    simp [h_intervs] at h_updateRight                   -- and that, if p is in the right half of [L, R), bRight[p] was updated to val
 
     have h_prop_right : st_prop_except_ancestors st.m (2 * j + 1) bLeft := by
       unfold st_prop_except_ancestors
@@ -158,13 +158,13 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       }) h_i_ub
       exact roba
     simp [h_prop_right] at h_updateRight
-    set bRight := (update_helper n st val pos (2 * j + 1) d.C d.R (by omega) bLeft).ret with h_bRight
+    set bRight := (update_helper n st x p (2 * j + 1) d.C d.R (by omega) bLeft).ret with h_bRight
 
 
     -- let bFinal be the vector we get from bRight after computing bFinal[j] = bRight[2j]*bRight[2j+1].
     -- with the information we got through recursion, we are now left to prove that:
     -- 1. st_prop_except_ancestors now holds on bFinal forall proper ancestors of j
-    -- 2. bFinal[pos] = val, regardless of where pos falls in the interval [L, R)
+    -- 2. bFinal[p] = val, regardless of where p falls in the interval [L, R)
 
     constructor
     · unfold st_prop_except_ancestors                                 -- we know from 'st_prop_except_ancestors st.m (2 * j + 1) bRight'
@@ -216,17 +216,17 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j x y : ℕ) (v
       · rw[h] at h_internal
         rw [add_lt_iff_neg_right st.m] at h_internal
         contradiction
-      · by_cases h_C_where : d.C ≤ pos              -- if pos is in the right half of [L, R),
+      · by_cases h_C_where : d.C ≤ p              -- if p is in the right half of [L, R),
         · apply h_updateRight.right at h_C_where    -- the leaf was correctly updated in bRight
           simp [h_disjoint] at h_C_where
           simp [Vector.get] at h_C_where
           exact h_C_where
-        · simp at h_C_where                         -- if pos is in the left half of [L, R),
+        · simp at h_C_where                         -- if p is in the left half of [L, R),
           subst bRight                              -- the leaf was correctly updated in bLeft,
           unfold update_helper                      -- and then it was left unchanged in bRight because it does not belong in the coverage interval of the right child
           simp only [TimeM.tick]
           simp [h2j12m, h_C_where]
-          have h_tmp : ¬pos = d.C := by omega
+          have h_tmp : ¬p = d.C := by omega
           simp [h_tmp]
           simp [h_disjoint] at h_updateLeft
           apply h_updateLeft.right at h_C_where
@@ -317,7 +317,6 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
     have h_left := update_helper_time α inst n st x p (2 * j) L C (by omega) b
     have h_right : (update_helper n st x p (2 * j + 1) C R (by omega) ((update_helper n st x p (2 * j) L C (by omega) b).ret)).time = 1 := by
       unfold update_helper
-      split_ifs <;> simp
       grind
     grw [h_left, h_right]
     rw [Nat.mul_comm 2 j, Nat.log_mul_base (by omega) (by omega)]
@@ -325,7 +324,6 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
   } else {
     have h_left : (update_helper n st x p (2 * j) L C (by omega) b).time = 1 := by
       unfold update_helper
-      split_ifs <;> simp
       grind
     have h_right := update_helper_time α inst n st x p (2 * j + 1) C R (by omega) (update_helper n st x p (2 * j) L C (by omega) b).ret
     grw [h_left, h_right]
@@ -338,7 +336,7 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
 theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) :
   (update α inst n st x p).time ≤ 9 + 2 * (Nat.log 2 n) -- 4 + 2 * (Nat.log 2 n + 2) + 1
 := by                     -- the time complexity of update is O(log2 n):
-  unfold update           -- if pos is not a valid leaf it only takes O(1) time,
+  unfold update           -- if p is not a valid leaf it only takes O(1) time,
   simp                    -- otherwise it calls update_helper with j=1 (the root),
   split_ifs with hposm    -- which in this case has complexity O(H - log2 1) = O(H) = O(log2 m) = O(log2 n)
   · have h_helper := update_helper_time α inst n st x p 1 0 st.m (by omega) st.a
@@ -364,9 +362,5 @@ theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α
         } else {
           simp_all
         }
-      rw [Nat.add_comm]
-      rw [← Nat.add_assoc (Nat.log 2 n) 1 1]
-      rw [Nat.pow_add_one 2 (Nat.log 2 n + 1)]
-      grw [h_pow_log_n]
-      omega
-  · simp; omega
+      grind
+  · grind
