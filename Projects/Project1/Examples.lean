@@ -37,17 +37,17 @@ def H := mH.1.2
 #eval m
 #eval H
 
-def albero := build ℕ n xs
+def cherry_tree := build ℕ n xs
 
-#check albero
-#eval albero.time
-#eval albero.ret.a
-#eval query ℕ n albero.ret 0 3
+#check cherry_tree
+#eval cherry_tree.time
+#eval cherry_tree.ret.a
+#eval query ℕ n cherry_tree.ret 0 3
 
-def albero1 := update ℕ n albero.ret 5 3
-#check albero1
-#eval albero1.time
-#eval albero1.ret.a
+def cherry_tree1 := update ℕ n cherry_tree.ret 5 3
+#check cherry_tree1
+#eval cherry_tree1.time
+#eval cherry_tree1.ret.a
 
 
 end NatMul
@@ -78,17 +78,17 @@ def H := mH.1.2
 #eval m
 #eval H
 
-def albero := @build ℕ NatWithSum n xs
+def peach_tree := @build ℕ NatWithSum n xs
 
-#check albero
-#eval albero.time
-#eval albero.ret.a
-#eval @query ℕ NatWithSum n albero.ret 2 8
+#check peach_tree
+#eval peach_tree.time
+#eval peach_tree.ret.a
+#eval @query ℕ NatWithSum n peach_tree.ret 2 8
 
-def albero1 := @update ℕ NatWithSum n albero.ret 5 3
-#check albero1
-#eval albero1.time
-#eval albero1.ret.a
+def peach_tree1 := @update ℕ NatWithSum n peach_tree.ret 5 3
+#check peach_tree1
+#eval peach_tree1.time
+#eval peach_tree1.ret.a
 
 end NatSum
 
@@ -123,19 +123,19 @@ def H := mH.1.2
 #eval m
 #eval H
 
-def albero := build ℕ n xs
+def apple_tree := build ℕ n xs
 
-#check albero
-#eval albero.time
-#eval albero.ret.a
-#eval @query ℕ maxMonoid n albero.ret 0 3
-#eval @query ℕ maxMonoid n albero.ret 5 30
-#eval @query ℕ maxMonoid n albero.ret 11 19
+#check apple_tree
+#eval apple_tree.time
+#eval apple_tree.ret.a
+#eval @query ℕ maxMonoid n apple_tree.ret 0 3
+#eval @query ℕ maxMonoid n apple_tree.ret 5 30
+#eval @query ℕ maxMonoid n apple_tree.ret 11 19
 
-def albero1 := @update ℕ maxMonoid n albero.ret 5 3
-#check albero1
-#eval albero1.time
-#eval albero1.ret.a
+def apple_tree1 := @update ℕ maxMonoid n apple_tree.ret 5 3
+#check apple_tree1
+#eval apple_tree1.time
+#eval apple_tree1.ret.a
 
 end NatMax
 
@@ -167,19 +167,19 @@ def H := mH.1.2
 #eval m
 #eval H
 
-def albero := build ℕ n xs
+def oak_tree := build ℕ n xs
 
-#check albero
-#eval albero.time
-#eval albero.ret.a
-#eval query ℕ n albero.ret 0 3
-#eval query ℕ n albero.ret 25 30
-#eval query ℕ n albero.ret 12 18
+#check oak_tree
+#eval oak_tree.time
+#eval oak_tree.ret.a
+#eval query ℕ n oak_tree.ret 0 3
+#eval query ℕ n oak_tree.ret 25 30
+#eval query ℕ n oak_tree.ret 12 18
 
-def albero1 := update ℕ n albero.ret 5 3
-#check albero1
-#eval albero1.time
-#eval albero1.ret.a
+def oak_tree1 := update ℕ n oak_tree.ret 5 3
+#check oak_tree1
+#eval oak_tree1.time
+#eval oak_tree1.ret.a
 
 end NatGcd
 
