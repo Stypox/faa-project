@@ -170,7 +170,7 @@ lemma CoverageIntervalDefs.internal_L_lt_C_lt_R {j H : ℕ} (d : CoverageInterva
   rw [Nat.clog_eq_one (by omega) (by omega)]
   exact d.internal_0_lt_h h_internal
 
-lemma CoverageIntervalDefs.C_eq_L_plus_half {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : d.C = d.L + 2 ^ (d.h - 1) := by
+lemma CoverageIntervalDefs.internal_C_eq_L_plus_half {j H : ℕ} (d : CoverageIntervalDefs j H) (h_internal : 2^H > j) : d.C = d.L + 2 ^ (d.h - 1) := by
   rw [d.h_C, d.h_R]
   rw [← Nat.add_assoc d.L d.L (2 ^ d.h)]
   rw [← Nat.mul_two d.L]
@@ -196,7 +196,7 @@ lemma CoverageIntervalDefs.Cj_eq_R2j {j H : ℕ} (d : CoverageIntervalDefs j H)
   (dLeft : CoverageIntervalDefs (2*j) H) (h_internal : 2^H > j) :
   d.C = dLeft.R
 := by
-  rw [d.C_eq_L_plus_half h_internal, dLeft.h_R, d.Lj_eq_L2j dLeft h_internal, d.h_h, dLeft.h_h, d.h_l, dLeft.h_l]
+  rw [d.internal_C_eq_L_plus_half h_internal, dLeft.h_R, d.Lj_eq_L2j dLeft h_internal, d.h_h, dLeft.h_h, d.h_l, dLeft.h_l]
   rw [Nat.add_right_inj]
   rw [Nat.log2_two_mul d.j_neq_0]
   grind
@@ -217,7 +217,7 @@ lemma CoverageIntervalDefs.Rj_eq_R2jp1 {j H : ℕ} (d : CoverageIntervalDefs j H
   d.R = dRight.R
 := by
   let dLeft := CoverageIntervalDefs.from_assumptions (2*j) H (have := d.h0j; by omega) (by omega)
-  rw[dRight.h_R, ← dLeft.R2j_eq_L2jp1 dRight, ← d.Cj_eq_R2j dLeft h_internal, d.C_eq_L_plus_half h_internal, d.h_R]
+  rw[dRight.h_R, ← dLeft.R2j_eq_L2jp1 dRight, ← d.Cj_eq_R2j dLeft h_internal, d.internal_C_eq_L_plus_half h_internal, d.h_R]
   rw [← Nat.two_pow_pred_mul_two (d.internal_0_lt_h h_internal)]
   rw [Nat.mul_two (2 ^ (d.h - 1))]
   rw [← Nat.add_assoc d.L (2 ^ (d.h - 1)) (2 ^ (d.h - 1))]
