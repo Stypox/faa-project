@@ -102,7 +102,6 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j L R : ℕ) (x
     rw [← Nat.add_mul 1 j 2]; rw [Nat.add_comm 1 j]
     gcongr
   }
-  all_goals have h2j2m : 2*j < 2*st.m := by omega
 
   · rw [← d.h_C]
     set dLeft := CoverageIntervalDefs.from_st n (2 * j) st (by omega) (by omega) with h_dL
