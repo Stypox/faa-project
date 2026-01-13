@@ -239,7 +239,7 @@ lemma update_helper_correctness (α : Type) (inst: Monoid α) (n j L R : ℕ) (x
   -- all leaves are left unchanged except for the leaf p (= node st.m+p), which will get the new value x IFF it is a valid leaf,
   -- and the internal nodes are updated accordingly, so that the segment tree property h_children holds once again for all of them
   -- (in particular, only the ancestors of the leaf in question will need to be updated)
-def update (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) : TimeM (SegmentTree α n) := do
+def update (α : Type) [inst: Monoid α] (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) : TimeM (SegmentTree α n) := do
   if hposm: p < st.m then                                       -- if p denotes a valid leaf:
     let b := update_helper n st x p 1 0 st.m (by omega) st.a    -- the function calls update_helper from the root (j=1) to obtain an update segment tree vector from st.a,
                                                                 -- which has cost O(log2 n)
@@ -333,7 +333,7 @@ theorem update_helper_time (α : Type) (inst: Monoid α) (n : ℕ) (st : Segment
 
 
 theorem update_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (x : α) (p : ℕ) :
-  (update α inst n st x p).time ≤ 9 + 2 * (Nat.log 2 n) -- 4 + 2 * (Nat.log 2 n + 2) + 1
+  (update α n st x p).time ≤ 9 + 2 * (Nat.log 2 n) -- 4 + 2 * (Nat.log 2 n + 2) + 1
 := by                     -- the time complexity of update is O(log2 n):
   unfold update           -- if p is not a valid leaf it only takes O(1) time,
   simp                    -- otherwise it calls update_helper with j=1 (the root),

@@ -5,7 +5,11 @@ import Projects.Project1.Helpers
 
 set_option autoImplicit false
 
-
+-- structure with variables describing the properties of a node with index j in a Segmen Tree of height H,
+-- in particular those regarding its "coverage interval" (= the set of leaves that j as lowest common ancestor).
+-- [L, R) denotes such interval among the leaves, which means that the respective interval of tree nodes is [st.m+L, st.m+R)
+-- C is the middle point of the interval; it is relevant only for internal nodes
+-- since every Segment Tree is a complete binary tree, each coverage interval has a power of 2 as width (and its exponent h is the height of the node in the tree)
 structure CoverageIntervalDefs (j H : ℕ) where
   h0j : 0 < j
   hj2m : j < 2*2^H
@@ -56,22 +60,22 @@ lemma CoverageIntervalDefs.L_lt_R {j H : ℕ} (d : CoverageIntervalDefs j H) : d
   simp
 
 
--- riscriverei:
+-- possible idea for a rewrite:
 
 -- def CoverageIntervalDefs.isLeaf {j H : ℕ} (d : CoverageIntervalDefs j H) := 2^H ≤ j
 -- def CoverageIntervalDefs.leaf_pow2_h_eq_1 {j H : ℕ} (d : CoverageIntervalDefs j H) := 2^d.h = 1
 -- def CoverageIntervalDefs.leaf_interval_R {j H : ℕ} (d : CoverageIntervalDefs j H) := d.R = d.L+1
 -- def CoverageIntervalDefs.leaf_interval_L {j H : ℕ} (d : CoverageIntervalDefs j H) := d.L = j-2^H
 
--- e poi:
+-- and then:
 
 -- lemma CoverageIntervalDefs.leaf_props {j H : ℕ} (d : CoverageIntervalDefs j H) :
 --  (d.isLeaf ∨ d.leaf_pow2_h_eq_1 ∨ d.leaf_interval_R ∨ d.leaf_interval_L) ↔
 --  (d.isLeaf ∧ d.leaf_pow2_h_eq_1 ∧ d.leaf_interval_R ∧ d.leaf_interval_L)
 -- := by ...
 
--- cosi' da qualsiasi proprieta' di foglia si passa facilmente (credo) a qualsiasi altra.
--- E farei piu' o meno la stessa cosa per i nodi interni.
+-- this way we can easily infer any leaf property from any other (I think).
+-- And then I'd do more or less the same for internal nodes properties.
 
 
 lemma CoverageIntervalDefs.leaf_l_eq_H {j H : ℕ} (d : CoverageIntervalDefs j H) (h_leaf : 2^H ≤ j) : d.l = H := by
@@ -231,8 +235,18 @@ lemma CoverageIntervalDefs.Cj_eq_L2jp1 {j H : ℕ} (d : CoverageIntervalDefs j H
   let dLeft := CoverageIntervalDefs.from_assumptions (2*j) H (have := d.h0j; by omega) (by omega)
   rw[← dLeft.R2j_eq_L2jp1 dRight, ← d.Cj_eq_R2j dLeft h_internal]
 
--- helper lemma
-lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
+
+
+-- fundamental theorem of Segment Tree:
+-- the value stored in node j with coverage interval [L, R) is:
+--  a[m + L] * a[m + L + 1] * .... * a[m + R - 2] * a[m + R - 1],
+--  which means that each tree node stores the "query value" for its coverage interval.
+
+-- this is proved by way of recursion from the Segmen Tree property h_children:
+-- forall internal nodes j, a[j] = a[2j] * a[2j+1],
+-- thanks to the lemma foldl_combine
+
+theorem SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : SegmentTree α n)
     (h0j : 0 < j) (hj2m: j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h0j hj2m
   st.a.get ⟨j, hj2m⟩ = (st.a.toArray.extract (st.m+d.L) (st.m+d.R)).foldl (fun a b => a * b) 1
@@ -267,6 +281,8 @@ lemma SegmentTree.coverage_interval {α : Type*} [Monoid α] (n j : ℕ) (st : S
 
     have h_Cmid : d.L < d.C ∧ d.C < d.R := d.internal_L_lt_C_lt_R h_leaf
     exact foldl_combine α (2*st.m) (st.m + d.L) (st.m + d.C) (st.m + d.R) st.a ⟨by omega, by omega⟩
+
+
 
 lemma SegmentTree.H_geq_log2j {α : Type*} [Monoid α] {n : ℕ} (st : SegmentTree α n)
   (j : ℕ) (h_j0 : j > 0) (h_j2m : j < 2 * st.m) :

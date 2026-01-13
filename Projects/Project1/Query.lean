@@ -18,7 +18,7 @@ set_option autoImplicit false
 -- otherwise, if the two intervals are disjoint, it returns the identity element,
 -- lastly, if the two have a proper intersection, the function will query the children of node j, and aggregate their answers
 
-def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) : TimeM α :=
+def query (α : Type) [inst: Monoid α] (n : ℕ) (st : SegmentTree α n) (p q : ℕ) : TimeM α :=
   query_aux 1 0 st.m (by omega)
   where query_aux (j L R: ℕ) (h_j0 : j > 0) : TimeM α := do
     if h_j2m : j < 2*st.m then
@@ -43,7 +43,7 @@ def query (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q :
 lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (st : SegmentTree α n) (h_j0 : j > 0) (h_j : j < 2*st.m) :
   let d := CoverageIntervalDefs.from_st n j st h_j0 h_j
   d.L = x → d.R = y →
-    (query.query_aux α inst n st p q j x y h_j0).ret = (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1
+    (query.query_aux α n st p q j x y h_j0).ret = (st.a.toArray.extract (st.m + max d.L p) (st.m + min d.R q)).foldl (fun a b => a * b) 1
   := by
 
   unfold query.query_aux
@@ -130,7 +130,7 @@ lemma query_aux_correctness (α : Type) (inst: Monoid α) (n j p q x y : ℕ) (s
 #check Array.foldl_empty
 
 theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
-  (query α inst n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
+  (query α n st p q).ret = (st.a.toArray.extract (st.m + p) (st.m + q)).foldl (fun a b => a * b) 1
 := by                     -- the correctness of query comes directly from that of query_aux
   unfold query
   have h1 : 1 < 2*st.m := by
@@ -160,7 +160,7 @@ theorem query_correctness (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentT
 -- trivial cases for query_aux: the time taken is 1
 theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
   (h_out_sub_disjoint : ¬(j < 2*st.m) ∨ (p ≤ L ∧ R ≤ q) ∨ (q ≤ L ∨ R ≤ p)) :
-  (query.query_aux α inst n st p q j L R h_j0).time = 1
+  (query.query_aux α n st p q j L R h_j0).time = 1
 := by
   unfold query.query_aux
   split_ifs with h_j h_sub h_disjoint <;> simp
@@ -172,7 +172,7 @@ theorem query_aux_time_out_sub_disjoint (α : Type) (inst: Monoid α) (n : ℕ) 
 -- so we can do the proof recursively as well
 theorem query_aux_time_semiinterval (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0)
   (h_semiinterval : p ≤ L ∨ q ≥ R) :
-  (query.query_aux α inst n st p q j L R h_j0).time ≤  2 * (2 + st.H - Nat.log 2 j) + 1 -- 5 + 2 * (st.H - Nat.log 2 j)
+  (query.query_aux α n st p q j L R h_j0).time ≤  2 * (2 + st.H - Nat.log 2 j) + 1 -- 5 + 2 * (st.H - Nat.log 2 j)
 := by
   unfold query.query_aux
   split_ifs with h_j2m h_sub h_disjoint <;> simp
@@ -225,7 +225,7 @@ termination_by R - L
 -- while when C is in [p, q) the recursive query_aux calls are of the form supported by
 -- `query_aux_time_semiinterval`
 theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) (j L R: ℕ) (h_j0 : j > 0) :
-  (query.query_aux α inst n st p q j L R h_j0).time ≤ 4 * (2 + st.H - Nat.log 2 j) + 1  -- 9 + 4 * (st.H - Nat.log 2 j)
+  (query.query_aux α n st p q j L R h_j0).time ≤ 4 * (2 + st.H - Nat.log 2 j) + 1  -- 9 + 4 * (st.H - Nat.log 2 j)
 := by
   unfold query.query_aux
   split_ifs with h_j2m h_sub h_disjoint <;> simp
@@ -259,7 +259,7 @@ theorem query_aux_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree
 -- case where j=1, L=0, R=m,
 -- and then proves the time complexity in terms of n based on the time complexity in terms of m
 theorem query_time (α : Type) (inst: Monoid α) (n : ℕ) (st : SegmentTree α n) (p q : ℕ) :
-  (query α inst n st p q).time ≤ 17 + 4 * (Nat.log 2 n)  -- 4 * (Nat.log 2 n + 2) + 9
+  (query α n st p q).time ≤ 17 + 4 * (Nat.log 2 n)  -- 4 * (Nat.log 2 n + 2) + 9
 := by
   unfold query
   have h_aux := query_aux_time α inst n st p q 1 0 st.m (by omega)

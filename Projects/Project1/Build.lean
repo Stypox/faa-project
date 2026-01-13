@@ -113,7 +113,7 @@ def compute_m_H (n : ℕ) : TimeM (mHstruct n) := do    -- recursive algorithm t
 
 -- function build returns a SegmentTree from a vector of elements xs of the monoid α,
 -- providing in particular the proof of the segment tree property h_children
-def build (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) : TimeM (SegmentTree α n) := do
+def build (α : Type) [inst: Monoid α] (n : ℕ) (xs : Vector α n) : TimeM (SegmentTree α n) := do
   let ⟨m, H, proof_m_pow2H, proof_mn, proof_m2n⟩ ← compute_m_H n
   have h_m : m > 0 := by omega
   let ⟨a, proof⟩ ← build_helper m 0 ((xs ++ (Vector.replicate (m-n) inst.one)).cast (by omega))
@@ -195,7 +195,7 @@ theorem build_helper_time {α : Type} [inst: Monoid α] (m j : ℕ) (xs : Vector
   )
 
 theorem build_time (α : Type) (inst: Monoid α) (n : ℕ) (xs : Vector α n) :
-  (build α inst n xs).time ≤ 8 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x(2n-1)+1 + 2x(2n-1))
+  (build α n xs).time ≤ 8 + 10*n      -- 9n + log2 (n-1) - 7 (= log2(n-1)+2 + n-2 + 2x(2n-1)+1 + 2x(2n-1))
 := by                                       -- summing all time components for: computing m and H (O(log2 n) time), augmenting the original vector (O(m) = O(n) time), building st.a in reverse with buid_helper (O(m) time), and lastly reversing it (O(m) time),
   unfold build                              -- we get a linear component, plus a logarithmic one (negligible wrt the linear one), and some additive constants, which yield in total a O(n) complexity
   simp
