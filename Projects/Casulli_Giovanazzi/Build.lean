@@ -1,8 +1,8 @@
 import Mathlib.Tactic
-import Projects.Project1.timeAPI
-import Projects.Project1.CoverageIntervalDefs
-import Projects.Project1.SegmentTree
-import Projects.Project1.FoldlHelpers
+import Projects.Casulli_Giovanazzi.timeAPI
+import Projects.Casulli_Giovanazzi.CoverageIntervalDefs
+import Projects.Casulli_Giovanazzi.SegmentTree
+import Projects.Casulli_Giovanazzi.FoldlHelpers
 
 set_option autoImplicit false
 

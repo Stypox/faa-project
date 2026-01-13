@@ -1,9 +1,9 @@
 import Mathlib.Tactic
-import Projects.Project1.timeAPI
-import Projects.Project1.SegmentTree
-import Projects.Project1.Build
-import Projects.Project1.Query
-import Projects.Project1.Update
+import Projects.Casulli_Giovanazzi.timeAPI
+import Projects.Casulli_Giovanazzi.SegmentTree
+import Projects.Casulli_Giovanazzi.Build
+import Projects.Casulli_Giovanazzi.Query
+import Projects.Casulli_Giovanazzi.Update
 
 set_option autoImplicit false
 

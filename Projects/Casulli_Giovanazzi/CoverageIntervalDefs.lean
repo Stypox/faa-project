@@ -1,7 +1,7 @@
 import Mathlib.Tactic
-import Projects.Project1.SegmentTree
-import Projects.Project1.FoldlHelpers
-import Projects.Project1.Helpers
+import Projects.Casulli_Giovanazzi.SegmentTree
+import Projects.Casulli_Giovanazzi.FoldlHelpers
+import Projects.Casulli_Giovanazzi.Helpers
 
 set_option autoImplicit false
 
